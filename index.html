@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <title>ChronoPop</title>
+    <meta name="description" content="터뜨려서 시간을 버는 1분 아케이드 매치3" />
+
+    <!-- iOS 홈 화면 웹앱 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ChronoPop" />
+    <meta name="theme-color" content="#070b14" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icon-180.png" />
+    <link rel="icon" href="./icon-192.png" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="hud">
+        <div id="time-wrap">
+          <div id="time-bar"><div id="time-fill"></div></div>
+          <div id="time-text">60.0</div>
+          <button id="btn-pause" class="icon-btn" aria-label="일시정지">⏸</button>
+        </div>
+        <div id="fever-bar"><div id="fever-fill"></div></div>
+        <div id="stats">
+          <div class="stat">
+            <span class="label">SCORE</span>
+            <b id="score">0</b>
+          </div>
+          <div class="stat right">
+            <span class="label">BEST</span>
+            <b id="best">0</b>
+          </div>
+        </div>
+      </header>
+
+      <main id="stage">
+        <canvas id="board"></canvas>
+        <div id="chain-badge"></div>
+        <div id="combo-badge"></div>
+      </main>
+
+      <footer id="foot">
+        <span id="streak-text"></span>
+        <button id="btn-erase" class="chance erase" disabled>
+          <span class="ico">🧹</span>
+          <span>지우기</span>
+          <span id="erase-count" class="count">1</span>
+        </button>
+        <button id="btn-chance" class="chance" disabled>
+          <span class="ico">🔀</span>
+          <span>섞기</span>
+          <span id="chance-count" class="count">1</span>
+        </button>
+      </footer>
+
+      <!-- 타이틀 -->
+      <section id="title-screen" class="overlay">
+        <div class="panel">
+          <h1 class="logo">Chrono<span>Pop</span></h1>
+          <p class="tag">터뜨려서 시간을 벌어라</p>
+          <ul class="rules">
+            <li><b>3개 이상</b> 가로·세로로 맞추면 터집니다</li>
+            <li><b>4개·5개</b> 대형 매치일수록 점수와 시간 보상 급증</li>
+            <li><b>연쇄(체인)</b>가 이어질수록 배수가 붙습니다</li>
+            <li>쉬지 않고 연달아 터뜨리면 <b>콤보</b>가 쌓여 점수가 커집니다</li>
+            <li>점수가 높아질수록 <b>시간 보상은 줄어듭니다</b></li>
+            <li><b>🔀 섞기</b>로 보드 일부를 재배치합니다 (1만점마다 충전)</li>
+            <li><b>💣 폭탄</b>은 눌러서 터뜨립니다 (드물게 떨어집니다)</li>
+            <li><b>🧹 지우기</b>로 고른 동물을 판에서 통째로 없앱니다</li>
+            <li><b>🔥 피버</b> 게이지가 차면 8초간 모든 매치가 폭발합니다</li>
+          </ul>
+          <button id="btn-start" class="primary">게임 시작</button>
+          <button id="btn-records" class="ghost">기록 보기</button>
+          <div class="mute-row">
+            <button id="btn-sound" class="ghost small">🔊 소리 켬</button>
+            <button id="btn-vibrate" class="ghost small">📳 진동 켬</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 결과 -->
+      <section id="result-screen" class="overlay hidden">
+        <div class="panel">
+          <h2 id="result-title">TIME UP</h2>
+          <div class="final">
+            <span class="label">SCORE</span>
+            <b id="final-score">0</b>
+          </div>
+          <div id="new-record" class="badge hidden">🏆 신기록!</div>
+          <div class="result-grid">
+            <div><span class="label">최대 콤보</span><b id="final-combo">0</b></div>
+            <div><span class="label">최대 체인</span><b id="final-chain">0</b></div>
+            <div><span class="label">최대 매치</span><b id="final-biggest">0</b></div>
+            <div><span class="label">생존 시간</span><b id="final-time">0s</b></div>
+            <div><span class="label">번 시간</span><b id="final-earned">0s</b></div>
+          </div>
+          <button id="btn-retry" class="primary">다시 하기</button>
+          <button id="btn-home" class="ghost">타이틀로</button>
+        </div>
+      </section>
+
+      <!-- 게임 오버 (뒤 화면이 비쳐 보인다) -->
+      <section id="gameover-screen" class="overlay soft hidden">
+        <div class="panel compact">
+          <h2 class="gameover-title">GAME OVER</h2>
+          <button id="btn-gameover-ok" class="primary">확인</button>
+        </div>
+      </section>
+
+      <!-- 기록 -->
+      <section id="records-screen" class="overlay hidden">
+        <div class="panel">
+          <h2>기록</h2>
+          <ol id="record-list" class="records"></ol>
+          <button id="btn-records-close" class="primary">닫기</button>
+          <button id="btn-records-clear" class="ghost small">기록 지우기</button>
+        </div>
+      </section>
+
+      <!-- 일시정지 -->
+      <section id="pause-screen" class="overlay hidden">
+        <div class="panel">
+          <h2>PAUSED</h2>
+          <div class="final">
+            <span class="label">SCORE</span>
+            <b id="pause-score">0</b>
+          </div>
+          <p class="tag">남은 시간은 멈춰 있습니다</p>
+          <button id="btn-resume" class="primary">계속하기</button>
+          <button id="btn-give-up" class="ghost">그만두기</button>
+        </div>
+      </section>
+
+      <!-- 카운트다운 -->
+      <div id="countdown" class="hidden"></div>
+
+      <!-- 큰 매치가 터질 때 화면 전체가 번쩍인다 -->
+      <div id="flash"></div>
+
+      <!-- 피버 진입 배너 -->
+      <div id="fever-banner"></div>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

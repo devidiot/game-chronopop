@@ -1,0 +1,738 @@
+:root {
+  --bg: #070b14;
+  --bg-2: #101a2e;
+  --panel: rgba(18, 26, 45, 0.92);
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #eaf0ff;
+  --muted: #8ea0c4;
+  --accent: #4dd8ff;
+  --accent-2: #ff5fa2;
+  --good: #46e6a0;
+  --warn: #ffd166;
+  --danger: #ff5a5a;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Pretendard',
+    'Apple SD Gothic Neo', system-ui, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+body {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #1b2b4d 0%, transparent 60%),
+    radial-gradient(100% 60% at 100% 100%, #2a1740 0%, transparent 55%),
+    var(--bg);
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--safe-top) + 10px) 12px calc(var(--safe-bottom) + 8px);
+  gap: 8px;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#time-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#time-bar {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+#time-fill {
+  height: 100%;
+  width: 66%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--good));
+  transition: width 90ms linear, background 260ms ease;
+}
+
+#time-fill.warn {
+  background: linear-gradient(90deg, var(--warn), #ff9f45);
+}
+
+#time-fill.danger {
+  background: linear-gradient(90deg, #ff7a7a, var(--danger));
+  animation: pulse 0.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* 일시정지 등 HUD의 작은 원형 버튼 */
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+#time-text {
+  min-width: 62px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.5px;
+}
+
+#time-text.gain {
+  color: var(--good);
+}
+
+/* 피버 게이지 — 시간 막대 아래 얇게 */
+#fever-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+#fever-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff8a3d, #ffd166);
+  transition: width 140ms linear;
+}
+
+body.fever #fever-fill {
+  background: linear-gradient(90deg, #ff3d7f, #ffd166, #4dd8ff);
+  box-shadow: 0 0 12px rgba(255, 200, 80, 0.9);
+}
+
+/* 피버 중에는 화면 전체 분위기가 바뀐다 */
+body.fever {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #5a2a6e 0%, transparent 60%),
+    radial-gradient(100% 60% at 100% 100%, #7a2040 0%, transparent 55%),
+    #14071c;
+}
+
+body.fever #board {
+  box-shadow:
+    0 12px 40px rgba(255, 90, 140, 0.35),
+    inset 0 0 0 1px rgba(255, 180, 120, 0.35),
+    0 0 46px rgba(255, 120, 60, 0.4);
+}
+
+/* 화면 번쩍임 */
+#flash {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 피버 진입 배너 */
+#fever-banner {
+  position: fixed;
+  top: 38%;
+  left: 0;
+  right: 0;
+  z-index: 26;
+  text-align: center;
+  font-size: 58px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(255, 120, 60, 0.95);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#fever-banner.show {
+  animation: feverIn 1100ms ease-out;
+}
+
+@keyframes feverIn {
+  0% {
+    transform: scale(2.2) rotate(-6deg);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+#stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.stat.right {
+  align-items: flex-end;
+}
+
+.label {
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.stat b {
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+#score.bump {
+  animation: bump 220ms ease;
+}
+
+@keyframes bump {
+  40% {
+    transform: scale(1.16);
+    color: var(--accent);
+  }
+}
+
+/* ---------- 보드 ---------- */
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+#board {
+  /* absolute + inset:0 + margin:auto 로 중앙 정렬한다.
+     캔버스를 문서 흐름에서 빼야 캔버스 크기가 stage 크기에 영향을 주는
+     되먹임(레이아웃이 매 프레임 커지는 문제)이 생기지 않는다.
+     transform은 화면 흔들림 연출 전용으로 비워둔다. */
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  display: block;
+  touch-action: none;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+#chain-badge {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.6);
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+  background: linear-gradient(135deg, var(--accent-2), #ff9d4d);
+  color: #1a0b16;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+#chain-badge.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+/* 콤보 — 점수보다 크게, 판 한가운데에 꽂아준다 */
+#combo-badge {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(34px, 13vw, 62px);
+  font-weight: 900;
+  letter-spacing: -1px;
+  white-space: nowrap;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#combo-badge.lv1 {
+  text-shadow: 0 0 20px rgba(255, 209, 102, 0.95), 0 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+#combo-badge.lv2 {
+  color: #fff2c2;
+  text-shadow: 0 0 26px rgba(255, 138, 61, 1), 0 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+#combo-badge.lv3 {
+  color: #ffe6f2;
+  text-shadow: 0 0 34px rgba(255, 61, 127, 1), 0 0 60px rgba(255, 200, 80, 0.8),
+    0 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+#combo-badge.show {
+  animation: comboPop 900ms ease-out;
+}
+
+@keyframes comboPop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.35) rotate(-10deg);
+    opacity: 0;
+  }
+  22% {
+    transform: translate(-50%, -50%) scale(1.18) rotate(3deg);
+    opacity: 1;
+  }
+  38% {
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -80%) scale(1.12);
+    opacity: 0;
+  }
+}
+
+/* 항목이 5개라 마지막 하나는 한 줄을 다 쓴다 */
+.result-grid > div:last-child {
+  grid-column: span 2;
+}
+
+#foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+}
+
+#streak-text {
+  flex: 1;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+/* 섞기·지우기 버튼 — 엄지가 닿는 하단 오른쪽에 둔다 */
+.chance {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: auto;
+  margin: 0;
+  padding: 11px 16px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #2a1600;
+  background: linear-gradient(135deg, var(--warn), #ff9a3d);
+  box-shadow: 0 4px 16px rgba(255, 160, 60, 0.35);
+  transition: opacity 160ms ease, transform 90ms ease, filter 160ms ease;
+}
+
+.chance .ico {
+  font-size: 16px;
+}
+
+.chance .count {
+  min-width: 21px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff3d6;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+
+/* 지우기 버튼 — 섞기와 색을 달리해 구분한다 */
+#btn-erase {
+  background: linear-gradient(135deg, #4dd8ff, #3f8bff);
+  box-shadow: 0 4px 16px rgba(70, 170, 255, 0.35);
+  color: #04121f;
+}
+
+/* 지울 젬을 고르는 중 */
+#btn-erase.armed {
+  animation: erasePulse 900ms ease-in-out infinite;
+}
+
+@keyframes erasePulse {
+  50% {
+    filter: brightness(1.4);
+    transform: scale(1.06);
+  }
+}
+
+.chance:disabled {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+  box-shadow: none;
+  opacity: 0.55;
+  cursor: default;
+}
+
+.chance:disabled .count {
+  color: var(--muted);
+}
+
+
+
+/* 새로 충전됐을 때 한 번 반짝 */
+.chance.gained {
+  animation: chanceGain 620ms ease;
+}
+
+@keyframes chanceGain {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.18);
+    filter: brightness(1.5);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------- 오버레이 ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--safe-top) + 16px) 18px calc(var(--safe-bottom) + 16px);
+  background: rgba(4, 7, 14, 0.72);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+/* 뒤 화면을 보여주는 가벼운 오버레이 */
+.overlay.soft {
+  background: rgba(4, 7, 14, 0.4);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.panel.compact {
+  max-width: 300px;
+  padding: 26px 20px 20px;
+  animation: gameOverIn 320ms cubic-bezier(0.2, 1.4, 0.5, 1);
+}
+
+.gameover-title {
+  margin: 0 0 18px;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  color: var(--text);
+  text-shadow: 0 0 22px rgba(255, 90, 90, 0.6);
+}
+
+@keyframes gameOverIn {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.panel {
+  width: 100%;
+  max-width: 380px;
+  max-height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 24px 20px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.logo {
+  margin: 0 0 4px;
+  font-size: 40px;
+  font-weight: 900;
+  letter-spacing: -1.5px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.logo span {
+  filter: none;
+}
+
+.tag {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.rules {
+  text-align: left;
+  margin: 0 0 20px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+.rules b {
+  color: var(--text);
+}
+
+h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.final {
+  margin-bottom: 10px;
+}
+
+.final b {
+  display: block;
+  font-size: 52px;
+  font-weight: 900;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+  background: linear-gradient(135deg, var(--accent), var(--good));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.badge {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--warn), #ff8a4d);
+  color: #2a1600;
+}
+
+.badge.hidden {
+  display: none;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 6px 0 20px;
+}
+
+.result-grid > div {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 10px 6px;
+}
+
+.result-grid b {
+  display: block;
+  font-size: 20px;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.records {
+  text-align: left;
+  margin: 0 0 18px;
+  padding-left: 24px;
+  font-size: 15px;
+  line-height: 2;
+  font-variant-numeric: tabular-nums;
+}
+
+.records li b {
+  font-size: 17px;
+}
+
+.records .meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+.records .empty {
+  list-style: none;
+  margin-left: -24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+button {
+  font-family: inherit;
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 15px 18px;
+  border-radius: 14px;
+  border: none;
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 90ms ease, opacity 120ms ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button.primary {
+  background: linear-gradient(135deg, var(--accent), #2f9bff);
+  color: #05121c;
+}
+
+button.ghost {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+button.small {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.mute-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.mute-row button {
+  margin-top: 0;
+}
+
+/* ---------- 카운트다운 ---------- */
+#countdown {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 120px;
+  font-weight: 900;
+  color: var(--text);
+  text-shadow: 0 0 40px rgba(77, 216, 255, 0.6);
+  pointer-events: none;
+}
+
+#countdown.hidden {
+  display: none;
+}
+
+#countdown span {
+  animation: countIn 700ms ease-out forwards;
+}
+
+@keyframes countIn {
+  0% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+  30% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.75);
+    opacity: 0;
+  }
+}

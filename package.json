@@ -1,0 +1,26 @@
+{
+  "name": "chronopop",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ChronoPop — 터뜨려서 시간을 버는 1분 아케이드 매치3 (iOS PWA)",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build && node scripts/precache-sw.mjs",
+    "preview": "vite preview --host",
+    "icons": "node scripts/make-icons.mjs",
+    "build:single": "npm run build && node scripts/inline-single.mjs",
+    "sim": "node scripts/simulate.mjs",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:apk": "npm run android:sync && node scripts/build-apk.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0"
+  }
+}
