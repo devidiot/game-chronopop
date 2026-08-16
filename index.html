@@ -6,14 +6,14 @@
       name="viewport"
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
-    <title>ChronoPop</title>
+    <title>Crush Pang</title>
     <meta name="description" content="터뜨려서 시간을 버는 1분 아케이드 매치3" />
 
     <!-- iOS 홈 화면 웹앱 -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="ChronoPop" />
+    <meta name="apple-mobile-web-app-title" content="Crush Pang" />
     <meta name="theme-color" content="#070b14" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icon-180.png" />
@@ -63,19 +63,8 @@
       <!-- 타이틀 -->
       <section id="title-screen" class="overlay">
         <div class="panel">
-          <h1 class="logo">Chrono<span>Pop</span></h1>
-          <p class="tag">터뜨려서 시간을 벌어라</p>
-          <ul class="rules">
-            <li><b>3개 이상</b> 가로·세로로 맞추면 터집니다</li>
-            <li><b>4개·5개</b> 대형 매치일수록 점수와 시간 보상 급증</li>
-            <li><b>연쇄(체인)</b>가 이어질수록 배수가 붙습니다</li>
-            <li>쉬지 않고 연달아 터뜨리면 <b>콤보</b>가 쌓여 점수가 커집니다</li>
-            <li>점수가 높아질수록 <b>시간 보상은 줄어듭니다</b></li>
-            <li><b>🔀 섞기</b>로 보드 일부를 재배치합니다 (1만점마다 충전)</li>
-            <li><b>💣 폭탄</b>은 눌러서 터뜨립니다 (드물게 떨어집니다)</li>
-            <li><b>🧹 지우기</b>로 고른 동물을 판에서 통째로 없앱니다</li>
-            <li><b>🔥 피버</b> 게이지가 차면 8초간 모든 매치가 폭발합니다</li>
-          </ul>
+          <h1 class="logo">Crush <span>Pang</span></h1>
+          <div id="title-art" class="title-art" aria-hidden="true"></div>
           <div class="size-pick">
             <span class="size-label">보드 크기</span>
             <div id="size-row" class="size-row" role="group" aria-label="보드 크기">
@@ -89,6 +78,7 @@
           </div>
           <button id="btn-start" class="primary">게임 시작</button>
           <button id="btn-records" class="ghost">기록 보기</button>
+          <button id="btn-help" class="ghost">게임 설명</button>
           <div class="mute-row">
             <button id="btn-sound" class="ghost small">🔊 소리 켬</button>
             <button id="btn-vibrate" class="ghost small">📳 진동 켬</button>
@@ -122,6 +112,25 @@
         <div class="panel compact">
           <h2 class="gameover-title">GAME OVER</h2>
           <button id="btn-gameover-ok" class="primary">확인</button>
+        </div>
+      </section>
+
+      <!-- 게임 설명 -->
+      <section id="help-screen" class="overlay hidden">
+        <div class="panel">
+          <h2>게임 설명</h2>
+          <ul class="rules">
+            <li><b>3개 이상</b> 가로·세로로 맞추면 터집니다</li>
+            <li><b>4개·5개</b> 대형 매치일수록 점수와 시간 보상 급증</li>
+            <li><b>연쇄(체인)</b>가 이어질수록 배수가 붙습니다</li>
+            <li>쉬지 않고 연달아 터뜨리면 <b>콤보</b>가 쌓여 점수가 커집니다</li>
+            <li>점수가 높아질수록 <b>시간 보상은 줄어듭니다</b></li>
+            <li><b>🔀 섞기</b>로 보드 일부를 재배치합니다 (1만점마다 충전)</li>
+            <li><b>💣 폭탄</b>은 눌러서 터뜨립니다 (드물게 떨어집니다)</li>
+            <li><b>🧹 지우기</b>로 고른 동물을 판에서 통째로 없앱니다</li>
+            <li><b>🔥 피버</b> 게이지가 차면 8초간 모든 매치가 폭발합니다</li>
+          </ul>
+          <button id="btn-help-close" class="primary">닫기</button>
         </div>
       </section>
 

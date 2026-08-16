@@ -554,6 +554,47 @@ body.fever #board {
   font-size: 14px;
 }
 
+/* ---------- 타이틀 아래 동물 장식 ----------
+   보드에 쓰는 것과 똑같은 그리기 코드로 캔버스에 그린다(main.ts).
+   크기·기울기·높이를 조금씩 어긋나게 두고 서로 다른 박자로 떠다니게 해서
+   줄 세운 느낌을 없앴다. */
+.title-art {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 6px 0 20px;
+  /* 위아래로 흔들리는 만큼 자리를 미리 비워둔다 */
+  padding: 8px 0;
+}
+
+.art-slot {
+  display: block;
+  line-height: 0;
+}
+
+/* 떠다니는 건 안쪽 캔버스만. 기울기는 바깥 슬롯이 맡아
+   transform 이 서로 덮어쓰지 않게 한다. */
+.art-face {
+  display: block;
+  animation: art-bob 3.4s ease-in-out infinite;
+}
+
+@keyframes art-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art-face {
+    animation: none;
+  }
+}
+
 .rules {
   text-align: left;
   margin: 0 0 20px;

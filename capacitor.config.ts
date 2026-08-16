@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.ryan.chronopop',
-  appName: 'ChronoPop',
+  appName: 'Crush Pang',
   webDir: 'dist',
   // 웹뷰가 뜨기 전 잠깐 보이는 배경을 게임 배경색과 맞춘다
   backgroundColor: '#070b14',

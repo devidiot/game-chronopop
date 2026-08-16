@@ -1,4 +1,4 @@
-# ChronoPop
+# Crush Pang
 
 터뜨려서 시간을 버는 1분 아케이드 매치3.
 

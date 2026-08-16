@@ -491,3 +491,26 @@ export function drawGem(
 export function gemColor(kind: number): GemStyle {
   return GEM_STYLES[kind % GEM_STYLES.length];
 }
+
+/**
+ * 캔버스 하나를 동물 얼굴 하나로 꽉 채운다. 타이틀 장식용.
+ *
+ * 보드와 같은 그리기 코드를 쓰므로 장식과 실제 젬이 어긋날 일이 없다.
+ * 얼굴 그림은 한 변의 PAD_RATIO 배 영역에 그려지므로 역으로 나눠 셀 크기를 구한다.
+ */
+export function drawFaceInto(
+  canvas: HTMLCanvasElement,
+  kind: number,
+  sizePx: number,
+): void {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(sizePx * dpr);
+  canvas.height = Math.round(sizePx * dpr);
+  canvas.style.width = `${sizePx}px`;
+  canvas.style.height = `${sizePx}px`;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawGem(ctx, kind, sizePx / 2, sizePx / 2, sizePx / PAD_RATIO, dpr);
+}

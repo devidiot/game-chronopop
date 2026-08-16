@@ -28,6 +28,7 @@ export class UI {
   private titleScreen = must('title-screen');
   private resultScreen = must('result-screen');
   private recordsScreen = must('records-screen');
+  private helpScreen = must('help-screen');
   private pauseScreen = must('pause-screen');
   private gameOverScreen = must('gameover-screen');
   private pauseBtn = must<HTMLButtonElement>('btn-pause');
@@ -167,6 +168,7 @@ export class UI {
     this.titleScreen.classList.remove('hidden');
     this.resultScreen.classList.add('hidden');
     this.recordsScreen.classList.add('hidden');
+    this.helpScreen.classList.add('hidden');
     this.pauseScreen.classList.add('hidden');
     this.gameOverScreen.classList.add('hidden');
     this.setPauseAvailable(false);
@@ -176,8 +178,17 @@ export class UI {
     this.titleScreen.classList.add('hidden');
     this.resultScreen.classList.add('hidden');
     this.recordsScreen.classList.add('hidden');
+    this.helpScreen.classList.add('hidden');
     this.pauseScreen.classList.add('hidden');
     this.gameOverScreen.classList.add('hidden');
+  }
+
+  showHelp(): void {
+    this.helpScreen.classList.remove('hidden');
+  }
+
+  hideHelp(): void {
+    this.helpScreen.classList.add('hidden');
   }
 
   /** 끝난 판을 잠깐 보여주는 모달 */

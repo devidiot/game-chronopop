@@ -1,4 +1,4 @@
-# ChronoPop — 게임 설계
+# Crush Pang — 게임 설계
 
 ## 한 줄 요약
 

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "ChronoPop — 터뜨려서 시간을 버는 1분 아케이드 매치3 (iOS PWA)",
+  "description": "Crush Pang — 터뜨려서 시간을 버는 1분 아케이드 매치3 (iOS PWA)",
   "scripts": {
     "dev": "vite --host",
     "build": "tsc --noEmit && vite build && node scripts/precache-sw.mjs",

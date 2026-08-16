@@ -27,6 +27,7 @@ import {
 import type { GameResult, MatchGroup } from './game/types';
 import { attachPointer } from './input/pointer';
 import { Effects } from './render/effects';
+import { drawFaceInto } from './render/gems';
 import { Renderer } from './render/renderer';
 import { UI } from './ui/screens';
 
@@ -274,6 +275,7 @@ const engine = new Engine({
 // ------------------------------------------------------------------ 레이아웃
 
 function layout(): void {
+  drawTitleArt();
   // 캔버스가 흐름에서 빠져 있으므로 stage의 clientWidth/Height는
   // 캔버스 크기와 무관하게 "쓸 수 있는 공간"만 나타낸다
   const size = Math.floor(Math.min(ui.stage.clientWidth, ui.stage.clientHeight));
@@ -442,6 +444,8 @@ bind('btn-retry', startGame);
 bind('btn-home', () => ui.showTitle());
 bind('btn-records', () => ui.showRecords());
 bind('btn-records-close', () => ui.hideRecords());
+bind('btn-help', () => ui.showHelp());
+bind('btn-help-close', () => ui.hideHelp());
 bind('btn-records-clear', () => {
   clearRecords();
   ui.setBest(0);
@@ -452,6 +456,64 @@ bind('btn-sound', () => {
   const btn = document.getElementById('btn-sound');
   if (btn) btn.textContent = on ? '🔊 소리 켬' : '🔇 소리 끔';
 });
+
+// ------------------------------------------------------------------ 타이틀 장식
+
+/**
+ * 로고 아래에 동물 여섯을 늘어놓는다.
+ *
+ * 보드와 같은 그리기 코드(`drawFaceInto`)를 쓰므로 장식과 실제 젬이
+ * 어긋날 일이 없다. 한 번만 그리고, 떠다니는 건 CSS 애니메이션에 맡긴다.
+ * 매 프레임 JS가 도는 곳이 아니라서 타이틀에 오래 머물러도 발열이 없다.
+ */
+/** 크기·기울기·높이를 조금씩 어긋나게 둬야 줄 세운 느낌이 안 난다 */
+const TITLE_LOOKS = [
+  { size: 54, tilt: -10, lift: 8 },
+  { size: 66, tilt: 5, lift: -6 },
+  { size: 50, tilt: -5, lift: 13 },
+  { size: 64, tilt: 9, lift: -3 },
+  { size: 56, tilt: -7, lift: 9 },
+  { size: 60, tilt: 4, lift: 1 },
+];
+
+/** 이웃끼리 겹치는 정도(px). 겹쳐야 옹기종기 모인 것처럼 보인다. */
+const TITLE_OVERLAP = 11;
+
+/** 마지막으로 그린 폭 — 같은 폭이면 다시 그리지 않는다 */
+let titleArtWidth = -1;
+
+function drawTitleArt(): void {
+  const host = document.getElementById('title-art');
+  if (!host) return;
+
+  const avail = host.clientWidth;
+  if (avail <= 0 || avail === titleArtWidth) return;
+  titleArtWidth = avail;
+
+  // 좁은 화면에서 넘치지 않도록 통째로 줄인다
+  const natural =
+    TITLE_LOOKS.reduce((sum, l) => sum + l.size, 0) -
+    TITLE_OVERLAP * (TITLE_LOOKS.length - 1);
+  const scale = Math.min(1, avail / natural);
+
+  host.textContent = '';
+
+  TITLE_LOOKS.forEach((look, kind) => {
+    const slot = document.createElement('span');
+    slot.className = 'art-slot';
+    slot.style.transform = `translateY(${look.lift * scale}px) rotate(${look.tilt}deg)`;
+    if (kind > 0) slot.style.marginLeft = `${-TITLE_OVERLAP * scale}px`;
+
+    const face = document.createElement('canvas');
+    face.className = 'art-face';
+    // 여섯이 한 몸처럼 출렁이지 않도록 박자를 어긋나게 준다
+    face.style.animationDelay = `${(kind * 0.26).toFixed(2)}s`;
+    drawFaceInto(face, kind, look.size * scale);
+
+    slot.appendChild(face);
+    host.appendChild(slot);
+  });
+}
 
 // ------------------------------------------------------------------ 보드 크기
 
