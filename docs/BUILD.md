@@ -92,3 +92,34 @@ npm run preview
 `?autostart&bot` 은 카운트다운 없이 시작해 봇이 자동으로 두는 모드다.
 헤드리스 크롬은 창을 500×900보다 작게 만들지 못하므로, 그보다 작은
 `--window-size` 를 주면 화면이 잘린 것처럼 보인다. 레이아웃 버그가 아니다.
+
+## 웹에 배포하기
+
+```bash
+npm run deploy
+```
+
+`npm run build` 로 만든 `dist` 를 `gh-pages` 브랜치에 올리고 GitHub Pages 가
+그걸 서비스한다. 30초~1분 뒤 https://devidiot.github.io/game-chronopop/ 에 반영된다.
+
+소스는 `main`, 배포본은 `gh-pages` 로 나눠 둬서 `main` 의 커밋 이력에는
+빌드 산출물이 섞이지 않는다. `gh-pages` 는 "지금 dist 의 모습"만 있으면 되는
+브랜치라 매번 커밋 하나로 갈아치운다.
+
+### GitHub Actions 로 자동화하려면
+
+`.github/workflows/pages.yml` 을 미리 써 뒀지만 저장소에는 없다. 저장된
+Personal Access Token 에 `workflow` 스코프가 없어 푸시가 거부되기 때문이다.
+
+github.com → Settings → Developer settings → Personal access tokens 에서 해당
+토큰에 **workflow** 를 체크하면(클래식 토큰은 스코프만 추가해도 토큰 값이
+그대로라 재로그인이 필요 없다) 아래처럼 올릴 수 있다.
+
+```bash
+git add .github/workflows/pages.yml
+git commit -m "ci: Pages 자동 배포"
+git push
+```
+
+그 뒤 저장소 Settings → Pages → Source 를 **GitHub Actions** 로 바꾼다.
+그때부터는 `main` 에 커밋만 하면 자동으로 빌드·배포된다.

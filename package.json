@@ -11,6 +11,7 @@
     "icons": "node scripts/make-icons.mjs",
     "build:single": "npm run build && node scripts/inline-single.mjs",
     "sim": "node scripts/simulate.mjs",
+    "deploy": "npm run build && node scripts/deploy-pages.mjs",
     "android:sync": "npm run build && npx cap sync android",
     "android:apk": "npm run android:sync && node scripts/build-apk.mjs"
   },

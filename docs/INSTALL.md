@@ -10,22 +10,30 @@
 
 ## iPhone — 홈 화면에 추가 (PWA)
 
-### 방법 A. 무료 정적 호스팅 (권장 · 완전 오프라인)
+### 방법 A. GitHub Pages (설정 완료 · 완전 오프라인)
 
-한 번만 올려두면 Mac을 켜둘 필요가 없고, 비행기 모드에서도 돌아간다.
+**이미 배포되어 있다.** 주소는
+
+```
+https://devidiot.github.io/game-chronopop/
+```
+
+고칠 게 있으면 명령어 한 줄이면 다시 올라간다.
 
 ```bash
 cd chronopop
-npm install
-npm run build          # dist/ 생성
+npm run deploy         # 빌드 → gh-pages 브랜치 푸시 → Pages 반영
 ```
 
-`dist` 폴더를 아무 HTTPS 정적 호스팅에 올린다.
+`npm run deploy` 는 `scripts/deploy-pages.mjs` 를 돌린다. 소스는 `main` 에,
+배포본은 `gh-pages` 에 둬서 `main` 의 커밋 이력이 빌드 산출물로 더러워지지 않는다.
+반영까지 30초~1분 걸린다.
 
-- [Netlify Drop](https://app.netlify.com/drop) — 폴더를 브라우저에 끌어다 놓으면 끝
-- Cloudflare Pages, GitHub Pages, Vercel 등 아무거나
+> 다른 호스팅을 쓰고 싶다면 `npm run build` 후 `dist` 폴더를
+> [Netlify Drop](https://app.netlify.com/drop) 에 끌어다 놓아도 된다.
+> Cloudflare Pages, Vercel 등 HTTPS 정적 호스팅이면 아무거나 동작한다.
 
-발급된 주소를 아이폰 **Safari**로 연다. (크롬 아님 — 홈 화면 추가는 Safari만 된다)
+위 주소를 아이폰 **Safari**로 연다. (크롬 아님 — 홈 화면 추가는 Safari만 된다)
 
 1. 하단 **공유 버튼** 탭
 2. **홈 화면에 추가**
@@ -138,7 +146,7 @@ adb install -r build/chronopop.apk
 
 | 상황                                    | 추천                       |
 | --------------------------------------- | -------------------------- |
-| 아이폰에서 제대로 즐기고 싶다           | iOS 방법 A (Netlify 등)    |
+| 아이폰에서 제대로 즐기고 싶다           | iOS 방법 A (GitHub Pages)  |
 | 지금 당장 30초 안에 해보고 싶다         | iOS 방법 B (Mac 서버)      |
 | PC·안드로이드에 파일로 보내주고 싶다    | 방법 C (단일 HTML)         |
 | 안드로이드 폰에 앱으로 설치하고 싶다    | APK                        |
