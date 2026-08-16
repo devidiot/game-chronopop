@@ -175,6 +175,18 @@ export class Engine {
     return this.phase !== 'title' && this.phase !== 'over';
   }
 
+  /**
+   * 타이틀 뒤에 비치는 보드를 새로 깐다.
+   * 보드 크기를 바꿨을 때 고른 결과가 곧바로 보이도록 하는 용도라
+   * 판이 도는 중에는 아무것도 하지 않는다.
+   */
+  reset(): void {
+    if (this.isPlaying) return;
+    this.grid = createBoard();
+    this.selected = null;
+    this.resetHint();
+  }
+
   /** 새 게임 시작 */
   start(): void {
     this.grid = createBoard();

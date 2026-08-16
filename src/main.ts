@@ -2,6 +2,7 @@ import './style.css';
 
 import { findHint } from './game/board';
 import {
+  BOARD_SIZES,
   GEM_STYLES,
   HITSTOP_BLAST,
   HITSTOP_BOMB,
@@ -9,11 +10,20 @@ import {
   HITSTOP_FEVER,
   HITSTOP_MATCH4,
   HITSTOP_MATCH5,
+  getBoardSize,
+  setBoardSize,
+  type BoardSize,
 } from './game/config';
 import { Engine } from './game/engine';
 import { sfx } from './game/audio';
 import { haptics } from './game/haptics';
-import { addRecord, clearRecords, getBest } from './game/storage';
+import {
+  addRecord,
+  clearRecords,
+  getBest,
+  getSavedBoardSize,
+  setSavedBoardSize,
+} from './game/storage';
 import type { GameResult, MatchGroup } from './game/types';
 import { attachPointer } from './input/pointer';
 import { Effects } from './render/effects';
@@ -442,6 +452,41 @@ bind('btn-sound', () => {
   const btn = document.getElementById('btn-sound');
   if (btn) btn.textContent = on ? '🔊 소리 켬' : '🔇 소리 끔';
 });
+
+// ------------------------------------------------------------------ 보드 크기
+
+const sizeButtons = Array.from(
+  document.querySelectorAll<HTMLButtonElement>('#size-row .size-btn'),
+);
+
+/**
+ * 보드 크기를 바꾼다.
+ *
+ * 기록은 크기마다 따로 쌓이므로 BEST 표시도 함께 갈아준다.
+ * 타이틀 뒤로 비치는 보드도 새 크기로 다시 깔아 고른 결과가 바로 보이게 한다.
+ */
+function applyBoardSize(size: BoardSize): void {
+  setBoardSize(size);
+  setSavedBoardSize(size);
+
+  for (const btn of sizeButtons) {
+    btn.setAttribute('aria-pressed', String(Number(btn.dataset.size) === size));
+  }
+
+  engine.reset();
+  layout(); // 칸 크기가 바뀌었으니 캔버스와 젬 캐시를 다시 만든다
+  ui.setBest(getBest());
+  ui.setBoardSize(size);
+}
+
+for (const btn of sizeButtons) {
+  btn.addEventListener('click', () => {
+    const size = BOARD_SIZES.find((s) => s === Number(btn.dataset.size));
+    if (!size || size === getBoardSize()) return;
+    applyBoardSize(size);
+    sfx.swap();
+  });
+}
 bind('btn-vibrate', () => {
   const on = haptics.toggle();
   const btn = document.getElementById('btn-vibrate');
@@ -463,7 +508,7 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 // ------------------------------------------------------------------ 시작
 
-ui.setBest(getBest());
+applyBoardSize(getSavedBoardSize());
 ui.setScore(0);
 ui.setTime(60);
 ui.setChances(0); // 타이틀에서는 비활성
@@ -490,6 +535,11 @@ requestAnimationFrame(frame);
 
 // ?autostart 로 열면 카운트다운 없이 바로 시작한다(스크린샷·디버그용)
 const params = new URLSearchParams(location.search);
+
+// ?size=8 — 저장된 값 대신 이 크기로 연다
+const askedSize = BOARD_SIZES.find((s) => s === Number(params.get('size')));
+if (askedSize) applyBoardSize(askedSize);
+
 if (params.has('autostart')) {
   ui.hideAll();
   effects.clear();

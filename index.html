@@ -76,6 +76,17 @@
             <li><b>🧹 지우기</b>로 고른 동물을 판에서 통째로 없앱니다</li>
             <li><b>🔥 피버</b> 게이지가 차면 8초간 모든 매치가 폭발합니다</li>
           </ul>
+          <div class="size-pick">
+            <span class="size-label">보드 크기</span>
+            <div id="size-row" class="size-row" role="group" aria-label="보드 크기">
+              <button class="size-btn" data-size="7" aria-pressed="true">
+                7 × 7<em>어려움</em>
+              </button>
+              <button class="size-btn" data-size="8" aria-pressed="false">
+                8 × 8<em>여유로움</em>
+              </button>
+            </div>
+          </div>
           <button id="btn-start" class="primary">게임 시작</button>
           <button id="btn-records" class="ghost">기록 보기</button>
           <div class="mute-row">
@@ -117,7 +128,7 @@
       <!-- 기록 -->
       <section id="records-screen" class="overlay hidden">
         <div class="panel">
-          <h2>기록</h2>
+          <h2>기록 <span id="records-size" class="size-tag">7 × 7</span></h2>
           <ol id="record-list" class="records"></ol>
           <button id="btn-records-close" class="primary">닫기</button>
           <button id="btn-records-clear" class="ghost small">기록 지우기</button>

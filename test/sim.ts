@@ -7,7 +7,13 @@
  *   npm run sim
  */
 import { findBestMove, findHint } from '../src/game/board';
-import { BOMB_SPAWN_CHANCE, MAX_TIME, START_TIME } from '../src/game/config';
+import {
+  BOARD_SIZES,
+  BOMB_SPAWN_CHANCE,
+  MAX_TIME,
+  START_TIME,
+  setBoardSize,
+} from '../src/game/config';
 import { Engine } from '../src/game/engine';
 import type { Cell, GameResult } from '../src/game/types';
 
@@ -134,6 +140,24 @@ function stats(values: number[]): { avg: number; min: number; max: number } {
 export function main(): void {
   const RUNS = 30;
 
+  // 보드 크기는 플레이어가 고르므로 둘 다 재본다.
+  //   npm run sim        → 7×7, 8×8 모두
+  //   npm run sim -- 8   → 8×8만
+  const asked = process.argv.slice(2).map(Number).filter(Boolean);
+  const sizes = BOARD_SIZES.filter((s) => asked.length === 0 || asked.includes(s));
+
+  for (const size of sizes) {
+    setBoardSize(size);
+    console.log(`\n${'='.repeat(20)}  ${size} × ${size}  ${'='.repeat(20)}`);
+    runProfiles(RUNS);
+  }
+
+  console.log(
+    '\n생존 시간이 실력에 따라 늘어나되 상한 근처에서 완만해지면 밸런스가 맞는 것이다.\n',
+  );
+}
+
+function runProfiles(RUNS: number): void {
   const profiles: Array<{ label: string; opts: SimOptions }> = [
     { label: '초보  (아무 수나, 2.0초 고민)', opts: { skill: 'random', thinkMs: 2000 } },
     { label: '보통  (아무 수나, 1.1초 고민)', opts: { skill: 'random', thinkMs: 1100 } },
@@ -186,8 +210,4 @@ export function main(): void {
       (cleared.avg * BOMB_SPAWN_CHANCE).toFixed(2).padStart(7),
     );
   }
-
-  console.log(
-    '\n생존 시간이 실력에 따라 늘어나되 상한 근처에서 완만해지면 밸런스가 맞는 것이다.\n',
-  );
 }

@@ -4,13 +4,37 @@
  */
 
 /**
- * 보드 크기.
+ * 보드 크기 — 플레이어가 타이틀에서 고른다.
  *
  * 7×7은 8×8보다 칸이 23% 적어 둘 수 있는 수가 줄고, 그만큼 어렵다.
  * 대신 젬이 커져서 손가락으로 집기는 편하다.
  */
-export const COLS = 7;
-export const ROWS = 7;
+export const BOARD_SIZES = [7, 8] as const;
+export type BoardSize = (typeof BOARD_SIZES)[number];
+export const DEFAULT_BOARD_SIZE: BoardSize = 7;
+
+/**
+ * 현재 보드 크기. `setBoardSize()` 로만 바꾼다.
+ *
+ * `const` 가 아니라 `let` 인 이유: ES 모듈의 import 는 값 복사가 아니라
+ * 살아 있는 참조라서, 여기서 다시 대입하면 이 값을 쓰는 모든 모듈이
+ * 곧바로 새 값을 본다. 덕분에 크기를 인자로 줄줄이 넘기지 않아도 된다.
+ *
+ * 단, **함수 안에서 읽어야** 한다. 모듈 최상단에서 구조분해로 꺼내 두면
+ * 그 시점의 값이 박제된다.
+ */
+export let COLS: number = DEFAULT_BOARD_SIZE;
+export let ROWS: number = DEFAULT_BOARD_SIZE;
+
+/** 판이 시작되기 전(타이틀)에만 호출한다 */
+export function setBoardSize(size: BoardSize): void {
+  COLS = size;
+  ROWS = size;
+}
+
+export function getBoardSize(): BoardSize {
+  return COLS as BoardSize;
+}
 
 /** 젬 종류 수 (GEM_STYLES 길이와 반드시 일치) */
 export const KINDS = 6;

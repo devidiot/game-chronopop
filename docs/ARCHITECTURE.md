@@ -1,6 +1,6 @@
 # ChronoPop — 코드 구조
 
-의존성 없는 TypeScript + Canvas 2D. 빌드 결과는 JS 25KB(gzip 9KB) 남짓이다.
+의존성 없는 TypeScript + Canvas 2D. 빌드 결과는 JS 49KB(gzip 16KB) 남짓이다.
 
 ## 파일
 
@@ -10,13 +10,13 @@ src/
   style.css            HUD와 오버레이 스타일
 
   game/                브라우저 API에 의존하지 않는 순수 로직
-    config.ts          모든 밸런스 상수와 젬 색·모양 정의
+    config.ts          모든 밸런스 상수와 젬 색·모양 정의 (보드 크기는 가변)
     types.ts           Tile, Grid, MatchGroup, Phase 등
     board.ts           보드 생성·스왑·중력·셔플·힌트 탐색
     match.ts           3연속 탐색과 덩어리 묶기(BFS)
     scoring.ts         점수·시간 보상 계산
     engine.ts          게임 상태 기계 (아래 참고)
-    storage.ts         최고 기록 저장 (localStorage)
+    storage.ts         기록·설정 저장 (localStorage, 기록은 보드 크기별)
     audio.ts           WebAudio 합성 효과음 — 오디오 파일 없음
 
   render/
@@ -139,10 +139,32 @@ visualRow = tile.fromRow + (tile.row - tile.fromRow) * e;
 
 URL 뒤에 붙여 쓴다.
 
-| 파라미터     | 동작                                    |
-| ------------ | --------------------------------------- |
-| `?autostart` | 카운트다운 없이 즉시 시작               |
-| `?bot`       | 자동으로 두는 데모 모드 (연출 확인용)   |
-| `?result`    | 결과 화면만 띄운다 (레이아웃 확인용)    |
+| 파라미터     | 동작                                       |
+| ------------ | ------------------------------------------ |
+| `?autostart` | 카운트다운 없이 즉시 시작                  |
+| `?bot`       | 자동으로 두는 데모 모드 (연출 확인용)      |
+| `?result`    | 결과 화면만 띄운다 (레이아웃 확인용)       |
+| `?gameover`  | GAME OVER 모달만 띄운다                    |
+| `?fever`     | 피버 상태로 시작                           |
+| `?combo=7`   | 콤보 배지를 그 수치로 띄운다               |
+| `?size=8`    | 저장된 값 대신 이 보드 크기로 연다 (7 / 8) |
 
 예: `http://localhost:5173/?autostart&bot`
+
+## 보드 크기를 런타임에 바꾸는 법
+
+`COLS`/`ROWS` 는 `config.ts` 의 **모듈 변수**(`export let`)다. `setBoardSize()`
+가 이 둘을 다시 대입하면, ES 모듈의 import 는 값 복사가 아니라 살아 있는
+참조이므로 `board.ts` · `match.ts` · `engine.ts` · `renderer.ts` 가 곧바로
+새 값을 본다. 크기를 함수 인자로 줄줄이 넘기지 않아도 되는 이유다.
+
+지켜야 할 것 두 가지.
+
+1. **함수 안에서 읽어야 한다.** 모듈 최상단에서 `const { COLS } = config` 처럼
+   꺼내 두면 그 시점의 값이 박제된다.
+2. **판이 도는 중에는 바꾸지 않는다.** 크기를 바꾸면 보드를 새로 깔아야 하므로
+   `Engine.reset()` 은 `isPlaying` 이면 아무것도 하지 않는다. 크기 선택 UI도
+   타이틀에만 있다.
+
+바꾼 뒤에는 `layout()` → `Renderer.resize()` 를 불러 칸 크기와 젬 스프라이트
+캐시를 다시 만들어야 한다. `main.ts` 의 `applyBoardSize()` 가 이 순서를 담당한다.

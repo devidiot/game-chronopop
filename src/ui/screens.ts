@@ -36,6 +36,7 @@ export class UI {
   private feverFill = must('fever-fill');
   private flashEl = must('flash');
   private feverBanner = must('fever-banner');
+  private recordsSize = must('records-size');
 
   private chainTimer = 0;
   private gainTimer = 0;
@@ -81,6 +82,11 @@ export class UI {
 
   setBest(best: number): void {
     this.bestEl.textContent = best.toLocaleString('ko-KR');
+  }
+
+  /** 기록은 보드 크기별로 따로 쌓이므로 어느 판의 기록인지 밝혀준다 */
+  setBoardSize(size: number): void {
+    this.recordsSize.textContent = `${size} × ${size}`;
   }
 
   setTime(seconds: number): void {
