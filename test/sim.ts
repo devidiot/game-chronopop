@@ -45,6 +45,16 @@ export interface SimResult extends GameResult {
   fevers: number;
   /** 둘 곳이 없어 보드를 섞은 횟수 */
   shuffles: number;
+  /** 터진 덩어리 수 */
+  groups: number;
+  /** 그중 4개 이상 대형 매치 수 */
+  bigGroups: number;
+  /** 봇이 둔 수 (구경 모드에서만) */
+  botMoves: number;
+  /** 그중 4개 이상 터뜨릴 자리가 있었던 횟수 */
+  botBigChances: number;
+  /** 실제로 그 자리를 잡은 횟수 */
+  botBigTaken: number;
 }
 
 export function simulate(opts: SimOptions): SimResult {
@@ -54,10 +64,14 @@ export function simulate(opts: SimOptions): SimResult {
   let bombsBlown = 0;
   let fevers = 0;
   let shuffles = 0;
+  let groups = 0;
+  let bigGroups = 0;
 
   const engine = new Engine({
     onPop: (group) => {
       cleared += group.size;
+      groups += 1;
+      if (group.size >= 4) bigGroups += 1;
     },
     onBlast: (cells) => {
       blasted += cells.length;
@@ -161,6 +175,11 @@ export function simulate(opts: SimOptions): SimResult {
     bombsBlown,
     fevers,
     shuffles,
+    groups,
+    bigGroups,
+    botMoves: bot?.stats.moves ?? 0,
+    botBigChances: bot?.stats.bigAvailable ?? 0,
+    botBigTaken: bot?.stats.bigTaken ?? 0,
   };
 }
 
@@ -198,18 +217,33 @@ export function main(): void {
 
 /** 구경 모드 세 실력 — 화면에서 도는 봇을 그대로 돌린 결과 */
 function runWatchProfiles(RUNS: number): void {
-  console.log(`\n[게임 구경] 같은 봇, delay 만 다름 · 각 ${RUNS}판\n`);
+  console.log(`\n[게임 구경] 같은 봇, 눈(sharp)과 손(delay)만 다름 · 각 ${RUNS}판\n`);
   printHeader();
+
+  const eyes: string[] = [];
 
   for (const skill of SKILLS) {
     const label = `${skill.label}  (${(skill.delay[0] / 1000).toFixed(2)}~${(
       skill.delay[1] / 1000
     ).toFixed(2)}초)`;
-    printRow(
-      label,
-      Array.from({ length: RUNS }, () => simulate({ skill: 'greedy', thinkMs: 0, watch: skill })),
+    const results = Array.from({ length: RUNS }, () =>
+      simulate({ skill: 'greedy', thinkMs: 0, watch: skill }),
+    );
+    printRow(label, results);
+
+    // "4개 이상 터뜨릴 자리가 있었을 때 실제로 잡은 비율" — 실력의 눈 그 자체다
+    const chances = results.reduce((a, r) => a + r.botBigChances, 0);
+    const taken = results.reduce((a, r) => a + r.botBigTaken, 0);
+    eyes.push(
+      `  ${skill.label}: 큰 자리 ${chances}번 중 ${taken}번 잡음 ` +
+        `(${((taken / Math.max(1, chances)) * 100).toFixed(0)}%, 설정값 ${(
+          skill.sharp * 100
+        ).toFixed(0)}%)`,
     );
   }
+
+  console.log('\n대형 매치(4개 이상)를 알아보는 눈:');
+  for (const line of eyes) console.log(line);
 }
 
 function runProfiles(RUNS: number): void {
@@ -248,8 +282,9 @@ function printHeader(): void {
     '막힘'.padStart(6),
     '제거젬'.padStart(7),
     '폭탄'.padStart(6),
+    '4+매치'.padStart(8),
   );
-  console.log('-'.repeat(96));
+  console.log('-'.repeat(106));
 }
 
 function printRow(label: string, results: SimResult[]): void {
@@ -262,6 +297,8 @@ function printRow(label: string, results: SimResult[]): void {
     const fevers = stats(results.map((r) => r.fevers));
     const shuffles = stats(results.map((r) => r.shuffles));
     const cleared = stats(results.map((r) => r.cleared));
+    const big = stats(results.map((r) => r.bigGroups));
+    const all = stats(results.map((r) => r.groups));
 
     console.log(
       label.padEnd(28),
@@ -275,6 +312,9 @@ function printRow(label: string, results: SimResult[]): void {
       shuffles.avg.toFixed(1).padStart(7),
       Math.round(cleared.avg).toString().padStart(8),
       (cleared.avg * BOMB_SPAWN_CHANCE).toFixed(2).padStart(7),
+      `${big.avg.toFixed(1)} (${((big.avg / Math.max(1, all.avg)) * 100).toFixed(0)}%)`.padStart(
+        10,
+      ),
     );
   }
 }

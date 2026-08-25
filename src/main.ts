@@ -10,6 +10,7 @@ import {
   HITSTOP_FEVER,
   HITSTOP_MATCH4,
   HITSTOP_MATCH5,
+  SWAP_MS,
   getBoardSize,
   setBoardSize,
   type BoardSize,
@@ -28,12 +29,15 @@ import type { Cell, GameResult, MatchGroup } from './game/types';
 import { attachPointer } from './input/pointer';
 import { Effects } from './render/effects';
 import { drawFaceInto } from './render/gems';
+import { Hand } from './render/hand';
 import { Renderer } from './render/renderer';
 import { UI } from './ui/screens';
 
 const ui = new UI();
 const renderer = new Renderer(ui.canvas);
 const effects = new Effects();
+/** 구경 모드에서 판 위를 돌아다니는 손가락 커서 */
+const hand = new Hand();
 
 /** 카운트다운 중이거나 게임이 끝나면 false — 이때는 시간이 흐르지 않는다 */
 let running = false;
@@ -266,6 +270,7 @@ const engine = new Engine({
     paused = false;
     ui.setPauseAvailable(false);
     bot.stop();
+    hand.park();
 
     // 구경한 판은 기록에 남기지 않는다.
     // 내가 세운 기록 사이에 컴퓨터 점수가 끼면 기록표가 뜻을 잃는다.
@@ -297,24 +302,38 @@ const engine = new Engine({
  * 지름길이 없으므로 규칙도 제한시간도 사람이 할 때와 완전히 같다.
  */
 const bot = new Bot(engine, {
-  select: (cell: Cell | null) => {
+  select: (cell: Cell | null, travelMs: number) => {
     engine.selected = cell;
     engine.idleMs = 0;
+    // 고른 젬 위로 손이 옮겨가 짚는다. 손을 놓는 건 실제로 밀 때다.
+    if (cell) {
+      const p = renderer.cellCenter(cell.row, cell.col);
+      hand.reach(p.x, p.y, travelMs);
+    }
   },
   swap: (a: Cell, b: Cell) => {
+    // 짚은 채로 옆칸까지 끌고 간다 — 젬이 미끄러지는 시간과 맞춘다
+    const p = renderer.cellCenter(b.row, b.col);
+    hand.drag(p.x, p.y, SWAP_MS);
     if (engine.trySwap(a, b)) sfx.swap();
   },
   detonate: (cell: Cell) => {
+    hand.lift();
     engine.detonate(cell);
   },
   chance: () => {
+    // 섞기 버튼은 판 밖에 있다 — 손은 잠깐 치우고 버튼을 튕겨 보여준다
+    hand.park();
+    ui.pressButton('btn-chance');
     if (engine.eraseArmed) ui.setEraseArmed(engine.toggleErase());
     engine.useChance();
   },
   armErase: () => {
+    ui.pressButton('btn-erase');
     ui.setEraseArmed(engine.toggleErase());
   },
   erase: (kind: number) => {
+    hand.lift();
     engine.eraseKind(kind);
   },
 });
@@ -373,6 +392,8 @@ function frame(now: number): void {
     }
 
     effects.update(dt);
+    // 일시정지 중에는 손도 멈춰 있어야 판과 따로 놀지 않는다
+    if (!paused) hand.update(dt);
   }
 
   // 움직일 게 없으면 초당 20장만 그린다.
@@ -380,6 +401,7 @@ function frame(now: number): void {
   const animating =
     (engine.isPlaying && engine.phase !== 'idle') ||
     effects.busy ||
+    hand.busy ||
     shake > 0.01 ||
     punch > 0.002 ||
     hitStop > 0;
@@ -400,7 +422,7 @@ function frame(now: number): void {
 
   if (animating || now - lastDraw >= IDLE_FRAME_MS) {
     lastDraw = now;
-    renderer.draw(engine, effects, now);
+    renderer.draw(engine, effects, now, hand);
   }
 
   requestAnimationFrame(frame);
@@ -415,6 +437,7 @@ function frame(now: number): void {
 function startGame(skill: Skill | null = null): void {
   watchSkill = skill;
   bot.stop();
+  hand.reset();
   ui.setWatching(skill?.label ?? null);
   ui.hideAll();
   effects.clear();
@@ -467,6 +490,7 @@ function giveUp(): void {
   paused = false;
   running = false;
   bot.stop();
+  hand.reset();
   watchSkill = null;
   ui.setWatching(null);
   ui.hidePause();
@@ -531,12 +555,27 @@ bind('btn-sound', () => {
   if (btn) btn.textContent = on ? '🔊 소리 켬' : '🔇 소리 끔';
 });
 
-for (const btn of document.querySelectorAll<HTMLButtonElement>('#skill-row .skill-btn')) {
+/**
+ * 실력 고르기 버튼을 SKILLS 표를 보고 만든다.
+ * HTML에 같은 내용을 또 적어두면 수치를 고칠 때마다 어긋난다.
+ */
+const skillRow = document.getElementById('skill-row');
+for (const skill of SKILLS) {
+  const btn = document.createElement('button');
+  btn.className = 'skill-btn';
+  btn.textContent = `${skill.emoji} ${skill.label}`;
+
+  const note = document.createElement('em');
+  const lo = (skill.delay[0] / 1000).toFixed(2).replace(/0$/, '');
+  const hi = (skill.delay[1] / 1000).toFixed(2).replace(/0$/, '');
+  note.textContent = `${skill.note} · ${lo}~${hi}초`;
+  btn.appendChild(note);
+
   btn.addEventListener('click', () => {
     sfx.unlock();
-    const skill = SKILLS.find((s) => s.id === btn.dataset.skill);
-    if (skill) startGame(skill);
+    startGame(skill);
   });
+  skillRow?.appendChild(btn);
 }
 
 // ------------------------------------------------------------------ 타이틀 장식
@@ -700,6 +739,18 @@ if (params.has('autostart')) {
   ui.setPauseAvailable(true);
   running = true;
   last = performance.now();
+}
+
+// ?hand=행,열 은 손가락 커서를 끄는 도중에 멈춰 세운다(그림 확인용).
+// ?autostart&hand 로 열면 판 위에 얹힌 모습을 그대로 볼 수 있다.
+if (params.has('hand')) {
+  const [row, col] = (params.get('hand') || '3,2').split(',').map(Number);
+  const from = renderer.cellCenter(row || 0, col || 0);
+  const to = renderer.cellCenter(row || 0, (col || 0) + 1);
+  hand.reach(from.x, from.y, 0);
+  hand.update(400); // 손이 도착해 짚기까지
+  hand.drag(to.x, to.y, 220);
+  hand.update(130); // 절반쯤 끌고 간 순간
 }
 
 // ?fever 는 피버를 즉시 켠다(연출 확인용)

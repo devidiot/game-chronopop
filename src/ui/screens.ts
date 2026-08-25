@@ -160,6 +160,17 @@ export class UI {
     else this.streakText.textContent = '';
   }
 
+  /**
+   * 봇이 눌렀다는 걸 보여주려고 아래 버튼을 한 번 튕긴다.
+   * 손가락 커서는 판 안에만 살아서 여기까지 오지 못한다.
+   */
+  pressButton(id: 'btn-chance' | 'btn-erase'): void {
+    const btn = must(id);
+    btn.classList.remove('bot-press');
+    void btn.offsetWidth; // 애니메이션 재시작 트릭
+    btn.classList.add('bot-press');
+  }
+
   showToast(text: string): void {
     this.streakText.textContent = text;
   }

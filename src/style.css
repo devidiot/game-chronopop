@@ -922,3 +922,21 @@ body.watching #board {
   color: var(--accent);
   font-weight: 700;
 }
+
+/* 봇이 아래 버튼을 눌렀을 때 — 손가락 커서는 판 밖으로 못 나간다 */
+.chance.bot-press {
+  animation: botPress 320ms ease-out;
+}
+
+@keyframes botPress {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.9);
+    filter: brightness(1.6);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

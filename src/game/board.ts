@@ -134,19 +134,30 @@ export function hasValidMove(grid: Grid): boolean {
   return false;
 }
 
+/** 한 수와, 그 수를 뒀을 때 벌어지는 일 */
+export interface ScoredMove {
+  /** 맞바꿀 두 칸 */
+  swap: [Cell, Cell];
+  /** 그 결과 터지는 칸 전체 */
+  cells: Cell[];
+  /** 이 수로 만들어지는 가장 큰 덩어리 크기 — 4 이상이면 대형 매치다 */
+  biggest: number;
+  /** 종합 이득. 클수록 좋다. */
+  value: number;
+}
+
 /**
- * 지금 둘 수 있는 수 중 **가장 이득이 큰** 것을 찾는다(힌트용).
+ * 지금 둘 수 있는 **모든 수**를 평가해서 늘어놓는다.
  *
  * 평가 기준은 두 가지다.
  *   - 덩어리가 클수록 좋다 (크기^2.2 — 5매치 하나가 3매치 둘보다 낫다)
  *   - 위쪽에서 터질수록 좋다 (위가 비면 그만큼 많이 떨어져 연쇄가 잘 난다)
  *
- * 점수가 같은 수가 여럿이면 그중 하나를 무작위로 고른다.
- * 매번 같은 자리만 가리키면 지루하기 때문이다.
+ * 힌트는 이 중 제일 좋은 것만 쓰지만, 구경 모드의 봇은 목록 전체가 필요하다.
+ * 실력이 낮을수록 좋은 수를 못 알아보고 아무거나 집기 때문이다.
  */
-export function findBestMove(grid: Grid): HintMove | null {
-  let bestValue = -1;
-  let best: HintMove[] = [];
+export function listMoves(grid: Grid): ScoredMove[] {
+  const moves: ScoredMove[] = [];
 
   const evaluate = (a: Cell, b: Cell): void => {
     swapForTest(grid, a, b);
@@ -154,23 +165,20 @@ export function findBestMove(grid: Grid): HintMove | null {
     if (hasMatch(grid)) {
       const groups = findMatches(grid);
       let value = 0;
+      let biggest = 0;
+
       for (const group of groups) {
         value += Math.pow(group.size, 2.2) + (group.centerRow < 3 ? 4 : 0);
+        biggest = Math.max(biggest, group.size);
       }
 
-      if (value >= bestValue) {
-        // 칸 좌표는 스왑을 되돌려도 그대로 유효하다
-        const move: HintMove = {
-          swap: [a, b],
-          cells: groups.flatMap((group) => group.cells),
-        };
-        if (value > bestValue) {
-          bestValue = value;
-          best = [move];
-        } else {
-          best.push(move);
-        }
-      }
+      // 칸 좌표는 스왑을 되돌려도 그대로 유효하다
+      moves.push({
+        swap: [a, b],
+        cells: groups.flatMap((group) => group.cells),
+        biggest,
+        value,
+      });
     }
 
     swapForTest(grid, b, a);
@@ -183,8 +191,48 @@ export function findBestMove(grid: Grid): HintMove | null {
     }
   }
 
+  return moves;
+}
+
+/**
+ * 목록에서 이득이 가장 큰 수를 고른다.
+ *
+ * 점수가 같은 수가 여럿이면 그중 하나를 무작위로 고른다.
+ * 매번 같은 자리만 가리키면 지루하기 때문이다.
+ */
+export function pickBestMove(moves: ScoredMove[]): ScoredMove | null {
+  let bestValue = -1;
+  let best: ScoredMove[] = [];
+
+  for (const move of moves) {
+    if (move.value > bestValue) {
+      bestValue = move.value;
+      best = [move];
+    } else if (move.value === bestValue) {
+      best.push(move);
+    }
+  }
+
   if (best.length === 0) return null;
   return best[Math.floor(Math.random() * best.length)];
+}
+
+/**
+ * **가장 큰 덩어리**를 만드는 수. 크기가 같으면 이득이 큰 쪽을 고른다.
+ *
+ * `pickBestMove` 는 3매치 두 덩어리(6개)를 4매치 하나(4개)보다 높게 치는데,
+ * 구경 모드의 고수는 "4개 이상을 노리는 사람"으로 보여야 하므로 크기를
+ * 먼저 본다.
+ */
+export function pickBiggestMove(moves: ScoredMove[]): ScoredMove | null {
+  let biggest = 0;
+  for (const move of moves) biggest = Math.max(biggest, move.biggest);
+  return pickBestMove(moves.filter((move) => move.biggest === biggest));
+}
+
+/** 지금 둘 수 있는 수 중 **가장 이득이 큰** 것을 찾는다(힌트용) */
+export function findBestMove(grid: Grid): HintMove | null {
+  return pickBestMove(listMoves(grid));
 }
 
 /**

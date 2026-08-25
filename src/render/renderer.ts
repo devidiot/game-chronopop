@@ -3,6 +3,7 @@ import type { Engine } from '../game/engine';
 import type { Cell, Tile } from '../game/types';
 import type { Effects } from './effects';
 import { clearGemCache, drawGem } from './gems';
+import type { Hand } from './hand';
 
 const easeOutCubic = (p: number): number => 1 - Math.pow(1 - p, 3);
 
@@ -148,7 +149,8 @@ export class Renderer {
     return v;
   }
 
-  draw(engine: Engine, effects: Effects, now: number): void {
+  /** @param hand 구경 모드의 손가락 커서 — 사람이 할 때는 없다 */
+  draw(engine: Engine, effects: Effects, now: number, hand?: Hand): void {
     const ctx = this.ctx;
     const { size } = this;
 
@@ -213,6 +215,8 @@ export class Renderer {
     ctx.restore();
 
     effects.draw(ctx);
+    // 손은 맨 위에 — 파티클에 가리면 무엇을 짚었는지 안 보인다
+    hand?.draw(ctx, this.cell, size);
   }
 
   /** 보드 바닥 — 은은한 체크무늬 홈. 한 번만 그린다. */

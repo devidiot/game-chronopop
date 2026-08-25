@@ -1,4 +1,4 @@
-import { cellsOfKind, findBestMove, findHint, isAdjacent } from './board';
+import { cellsOfKind, isAdjacent, listMoves, pickBiggestMove } from './board';
 import { COLS, KINDS, ROWS } from './config';
 import type { Engine } from './engine';
 import type { Cell } from './types';
@@ -10,9 +10,13 @@ import type { Cell } from './types';
  * (`trySwap` / `detonate` / `useChance` / `eraseKind`)만 쓰고, 판을 미리
  * 들여다보거나 시간을 벌어주는 짓은 하지 않는다.
  *
- * 실력 차이는 오직 **반응 속도(delay)** 하나다. 초보도 고수도 같은 눈으로
- * 같은 수를 고르되, 손이 느리냐 빠르냐만 다르다. 그래서 운이 나쁘면
- * 고수도 초보만 한 점수가 나온다.
+ * 실력 차이는 두 가지다.
+ *   - **눈**: 4개 이상 터지는 자리를 알아보는 확률(`sharp`).
+ *     못 알아보면 눈에 먼저 띈 아무 수나 둔다.
+ *   - **손**: 한 수와 다음 수 사이의 간격(`delay`).
+ *
+ * 알아보지 못하고 아무 수나 둬도 그게 우연히 4매치일 수 있다. 그래서 초보도
+ * 어쩌다 큰 걸 터뜨리고, 판이 안 풀리면 고수도 초보만 한 점수로 끝난다.
  */
 
 export type SkillId = 'rookie' | 'skilled' | 'master';
@@ -20,6 +24,8 @@ export type SkillId = 'rookie' | 'skilled' | 'master';
 export interface Skill {
   id: SkillId;
   label: string;
+  /** 고르기 버튼에 붙는 얼굴 */
+  emoji: string;
   /** 버튼에 적는 짧은 설명 */
   note: string;
   /**
@@ -27,12 +33,38 @@ export interface Skill {
    * 매번 이 안에서 새로 뽑으므로 박자가 기계처럼 고르지 않다.
    */
   delay: [number, number];
+  /**
+   * 판에서 **가장 큰 덩어리가 터지는 자리**를 알아볼 확률.
+   * 못 알아보면 둘 수 있는 수 중 눈에 먼저 띈 것을 집는다.
+   */
+  sharp: number;
 }
 
 export const SKILLS: Skill[] = [
-  { id: 'rookie', label: '초보', note: '한 수 걸러 한 번 고민 · 0.9~1.4초', delay: [900, 1400] },
-  { id: 'skilled', label: '중수', note: '또박또박 이어간다 · 0.55~0.85초', delay: [550, 850] },
-  { id: 'master', label: '고수', note: '손이 쉬지 않는다 · 0.28~0.45초', delay: [280, 450] },
+  {
+    id: 'rookie',
+    label: '초보',
+    emoji: '🐣',
+    note: '어쩌다 운 좋게 큰 걸 터뜨린다',
+    delay: [900, 1400],
+    sharp: 0.12,
+  },
+  {
+    id: 'skilled',
+    label: '중수',
+    emoji: '🙂',
+    note: '4개짜리를 종종 놓친다',
+    delay: [550, 850],
+    sharp: 0.5,
+  },
+  {
+    id: 'master',
+    label: '고수',
+    emoji: '😎',
+    note: '4개 이상을 귀신같이 찾아낸다',
+    delay: [280, 450],
+    sharp: 0.97,
+  },
 ];
 
 export function findSkill(id: string | null | undefined): Skill | null {
@@ -50,12 +82,6 @@ const AIM_SHARE = 0.62;
 const DISTRACT_CHANCE = 0.08;
 const DISTRACT_MS: [number, number] = [400, 900];
 
-/**
- * 최선의 수를 못 보고 눈에 먼저 띈 수를 두는 확률.
- * **실력과 무관하게 같은 값**이다. 실력 차는 delay 로만 준다.
- */
-const SLOPPY_CHANCE = 0.18;
-
 /** 폭탄이 보일 때 그 자리에서 눌러 터뜨릴 확률 */
 const BOMB_TAP_CHANCE = 0.45;
 
@@ -69,8 +95,11 @@ const CHANCE_USE_CHANCE = 0.06;
 
 /** 봇이 사람 대신 만지는 손 — 화면 버튼과 완전히 같은 동작이다 */
 export interface Hands {
-  /** 젬 하나를 고른다(선택 표시가 켜진다) */
-  select: (cell: Cell | null) => void;
+  /**
+   * 젬 하나를 고른다(선택 표시가 켜진다).
+   * @param travelMs 손가락 커서가 그 자리까지 가는 데 쓸 시간
+   */
+  select: (cell: Cell | null, travelMs: number) => void;
   /** 고른 젬을 옆으로 민다 */
   swap: (a: Cell, b: Cell) => void;
   /** 폭탄을 눌러 터뜨린다 */
@@ -143,6 +172,12 @@ export class Bot {
   private timer = 0;
   /** 이번 수의 손동작에 쓸 시간(ms) */
   private handMs = 0;
+
+  /**
+   * 실력 차이를 확인하는 계수기(시뮬레이터 전용).
+   * 게임 진행에는 쓰이지 않는다.
+   */
+  readonly stats = { moves: 0, bigAvailable: 0, bigTaken: 0 };
 
   constructor(
     private engine: Engine,
@@ -241,12 +276,19 @@ export class Bot {
       return { kind: 'chance' };
     }
 
-    // 늘 최선의 수를 찾아내지는 못한다. 가끔은 눈에 먼저 띈 수를 둔다.
-    const move = Math.random() < SLOPPY_CHANCE ? null : findBestMove(engine.grid);
-    if (move) return { kind: 'swap', a: move.swap[0], b: move.swap[1] };
+    // 판 전체를 한 번만 훑고, 실력만큼만 알아본다.
+    // 눈이 밝으면 제일 큰 덩어리가 터지는 자리를, 아니면 아무거나 집는다.
+    const moves = listMoves(engine.grid);
+    if (moves.length > 0) {
+      const sharp = Math.random() < this.skill!.sharp;
+      const move = sharp ? pickBiggestMove(moves) : pick(moves);
 
-    const any = findHint(engine.grid);
-    if (any) return { kind: 'swap', a: any[0], b: any[1] };
+      this.stats.moves += 1;
+      if (moves.some((m) => m.biggest >= 4)) this.stats.bigAvailable += 1;
+      if (move && move.biggest >= 4) this.stats.bigTaken += 1;
+
+      if (move) return { kind: 'swap', a: move.swap[0], b: move.swap[1] };
+    }
 
     // 둘 곳이 없다 — 섞기가 있으면 쓴다(없으면 엔진이 알아서 섞어준다)
     return engine.canUseChance ? { kind: 'chance' } : null;
@@ -256,18 +298,18 @@ export class Bot {
   private aim(plan: Plan): void {
     switch (plan.kind) {
       case 'swap':
-        this.hands.select(plan.a);
+        this.hands.select(plan.a, this.handMs);
         break;
       case 'bomb':
-        this.hands.select(plan.cell);
+        this.hands.select(plan.cell, this.handMs);
         break;
       case 'erase':
         // 버튼을 먼저 누르고 지울 동물을 고른다 — 사람이 하는 순서 그대로
         this.hands.armErase();
-        this.hands.select(plan.cell);
+        this.hands.select(plan.cell, this.handMs);
         break;
       case 'chance':
-        this.hands.select(null);
+        this.hands.select(null, 0);
         break;
     }
   }
@@ -275,17 +317,17 @@ export class Bot {
   private act(plan: Plan): void {
     switch (plan.kind) {
       case 'swap':
-        this.hands.select(null);
+        this.hands.select(null, 0);
         this.hands.swap(plan.a, plan.b);
         break;
       case 'bomb':
-        this.hands.select(null);
+        this.hands.select(null, 0);
         this.hands.detonate(plan.cell);
         break;
       case 'erase':
         // 일시정지 등으로 준비가 풀렸을 수 있다
         if (!this.engine.eraseArmed) this.hands.armErase();
-        this.hands.select(null);
+        this.hands.select(null, 0);
         this.hands.erase(plan.target);
         break;
       case 'chance':
