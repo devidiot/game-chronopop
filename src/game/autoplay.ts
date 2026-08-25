@@ -1,4 +1,11 @@
-import { cellsOfKind, isAdjacent, listMoves, pickBiggestMove } from './board';
+import {
+  cellsOfKind,
+  isAdjacent,
+  listMoves,
+  pickBestMove,
+  pickBiggestMove,
+  type ScoredMove,
+} from './board';
 import { COLS, KINDS, ROWS } from './config';
 import type { Engine } from './engine';
 import type { Cell } from './types';
@@ -19,7 +26,7 @@ import type { Cell } from './types';
  * 어쩌다 큰 걸 터뜨리고, 판이 안 풀리면 고수도 초보만 한 점수로 끝난다.
  */
 
-export type SkillId = 'rookie' | 'skilled' | 'master';
+export type SkillId = 'rookie' | 'skilled' | 'master' | 'grandmaster';
 
 export interface Skill {
   id: SkillId;
@@ -38,6 +45,15 @@ export interface Skill {
    * 못 알아보면 둘 수 있는 수 중 눈에 먼저 띈 것을 집는다.
    */
   sharp: number;
+  /**
+   * 4개 이상만 노린다.
+   *
+   * 큰 자리가 있으면 무조건 그것부터 치고, 없으면 폭탄·지우기·섞기로
+   * 판을 흔들어 만들어낸다. 그래도 없을 때만 마지못해 3매치를 둔다 —
+   * 이 게임에서 판을 바꾸는 방법은 젬을 터뜨리는 것뿐이라, 아예 안 두면
+   * 판이 그대로 굳어 제한시간만 흘러간다.
+   */
+  bigOnly?: boolean;
 }
 
 export const SKILLS: Skill[] = [
@@ -64,6 +80,15 @@ export const SKILLS: Skill[] = [
     note: '4개 이상을 귀신같이 찾아낸다',
     delay: [280, 450],
     sharp: 0.97,
+  },
+  {
+    id: 'grandmaster',
+    label: '초고수',
+    emoji: '⚡',
+    note: '뜸 들이지 않고 4개 이상만 노린다',
+    delay: [0, 0],
+    sharp: 1,
+    bigOnly: true,
   },
 ];
 
@@ -222,7 +247,11 @@ export class Bot {
     if (!this.plan) {
       const plan = this.decide();
       if (!plan) {
+        // 둘 것이 아무것도 없다 — 판이 바뀌기를 기다린다.
+        // 뜸이 없는 실력이라고 곧바로 다시 훑으면 매 프레임 판 전체를
+        // 뒤지게 되므로 최소한의 간격은 둔다.
         this.beginAim();
+        this.timer = Math.max(this.timer, 150);
         return;
       }
       this.plan = plan;
@@ -241,7 +270,9 @@ export class Bot {
   /** 다음 수를 고르기까지의 뜸을 새로 뽑는다 */
   private beginAim(): void {
     const total = rand(this.skill!.delay);
-    const distract = Math.random() < DISTRACT_CHANCE ? rand(DISTRACT_MS) : 0;
+    // 뜸을 들이지 않는 실력은 한눈도 팔지 않는다
+    const distract =
+      this.skill!.delay[1] > 0 && Math.random() < DISTRACT_CHANCE ? rand(DISTRACT_MS) : 0;
     this.timer = total * AIM_SHARE + distract;
     this.handMs = total * (1 - AIM_SHARE);
   }
@@ -254,21 +285,24 @@ export class Bot {
    */
   private decide(): Plan | null {
     const engine = this.engine;
+    const skill = this.skill!;
     const bombs = findBombs(engine);
 
     // 붙어 있는 폭탄 두 개는 누가 봐도 맞부딪힐 자리다
     const pair = findBombPair(bombs);
     if (pair) return { kind: 'swap', a: pair[0], b: pair[1] };
 
+    const moves = listMoves(engine.grid);
+
+    if (skill.bigOnly) return this.decideBigOnly(moves, bombs);
+
     if (bombs.length > 0 && Math.random() < BOMB_TAP_CHANCE) {
       return { kind: 'bomb', cell: pick(bombs) };
     }
 
     if (engine.canUseErase && Math.random() < ERASE_CHANCE) {
-      const fat = fattestKind(engine);
-      if (fat && fat.count >= ERASE_MIN_CELLS) {
-        return { kind: 'erase', target: fat.kind, cell: fat.cell };
-      }
+      const erase = this.eraseePlan();
+      if (erase) return erase;
     }
 
     // 아껴두기만 하면 쓸 일이 없다 — 가끔 섞어본다
@@ -276,22 +310,68 @@ export class Bot {
       return { kind: 'chance' };
     }
 
-    // 판 전체를 한 번만 훑고, 실력만큼만 알아본다.
-    // 눈이 밝으면 제일 큰 덩어리가 터지는 자리를, 아니면 아무거나 집는다.
-    const moves = listMoves(engine.grid);
+    // 실력만큼만 알아본다. 눈이 밝으면 제일 큰 덩어리가 터지는 자리를,
+    // 아니면 눈에 먼저 띈 아무 수나 집는다.
     if (moves.length > 0) {
-      const sharp = Math.random() < this.skill!.sharp;
-      const move = sharp ? pickBiggestMove(moves) : pick(moves);
-
-      this.stats.moves += 1;
-      if (moves.some((m) => m.biggest >= 4)) this.stats.bigAvailable += 1;
-      if (move && move.biggest >= 4) this.stats.bigTaken += 1;
-
+      const move = Math.random() < skill.sharp ? pickBiggestMove(moves) : pick(moves);
+      this.tally(moves, move);
       if (move) return { kind: 'swap', a: move.swap[0], b: move.swap[1] };
     }
 
     // 둘 곳이 없다 — 섞기가 있으면 쓴다(없으면 엔진이 알아서 섞어준다)
     return engine.canUseChance ? { kind: 'chance' } : null;
+  }
+
+  /**
+   * 4개 이상만 노리는 실력.
+   *
+   * 큰 자리가 하나라도 있으면 반드시 그것을 친다. 없으면 손에 쥔 것부터
+   * 털어 판을 흔든다 — 폭탄, 지우기, 섞기 순이다. 그마저 없으면 어쩔 수
+   * 없이 3매치를 둔다. 이 게임에서 판을 바꾸는 방법은 젬을 터뜨리는 것뿐이라,
+   * 여기서 손을 놓으면 판이 굳은 채 제한시간만 흘러간다.
+   */
+  private decideBigOnly(moves: ScoredMove[], bombs: Cell[]): Plan | null {
+    const engine = this.engine;
+    const big = moves.filter((move) => move.biggest >= 4);
+
+    if (big.length > 0) {
+      const move = pickBiggestMove(big);
+      this.tally(moves, move);
+      if (move) return { kind: 'swap', a: move.swap[0], b: move.swap[1] };
+    }
+
+    // 큰 자리가 없다 — 만들어낸다
+    if (bombs.length > 0) return { kind: 'bomb', cell: pick(bombs) };
+
+    if (engine.canUseErase) {
+      const erase = this.eraseePlan();
+      if (erase) return erase;
+    }
+
+    if (engine.canUseChance) return { kind: 'chance' };
+
+    if (moves.length > 0) {
+      // 3매치라도 둬서 판을 흔든다. 가장 크게 흔드는 쪽으로.
+      const move = pickBestMove(moves);
+      this.tally(moves, move);
+      if (move) return { kind: 'swap', a: move.swap[0], b: move.swap[1] };
+    }
+
+    return null;
+  }
+
+  /** 판에 가장 많이 깔린 동물을 통째로 지우는 수 */
+  private eraseePlan(): Plan | null {
+    const fat = fattestKind(this.engine);
+    if (!fat || fat.count < ERASE_MIN_CELLS) return null;
+    return { kind: 'erase', target: fat.kind, cell: fat.cell };
+  }
+
+  /** 실력의 눈이 얼마나 밝은지 세어 둔다(시뮬레이터 전용) */
+  private tally(moves: ScoredMove[], chosen: ScoredMove | null): void {
+    this.stats.moves += 1;
+    if (moves.some((move) => move.biggest >= 4)) this.stats.bigAvailable += 1;
+    if (chosen && chosen.biggest >= 4) this.stats.bigTaken += 1;
   }
 
   /** 손이 가기 전, 칠 자리를 눈으로 짚는다 */

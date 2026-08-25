@@ -102,9 +102,14 @@ export class Hand {
     }
     // 손이 빠른 실력일수록 짚는 동작도 짧아야 한다.
     // 누르다 마는 사이에 다음 동작이 오면 짚은 티가 안 난다.
-    const press = Math.max(40, Math.min(PRESS_MS, travelMs * 0.4));
+    //
+    // 뜸이 아예 없는 실력(초고수)은 젬 위로 곧바로 튀어 가 짚는다.
+    // 여기서 조금이라도 뜸을 들이면 다음 수가 먼저 와서 짚는 시늉도 못 하고,
+    // 손이 판 위를 하염없이 따라다니기만 한다.
+    const instant = travelMs <= 0;
+    const press = instant ? 1 : Math.max(40, Math.min(PRESS_MS, travelMs * 0.4));
     this.run([
-      { kind: 'move', x, y, ms: Math.max(50, travelMs - press) },
+      { kind: 'move', x, y, ms: instant ? 1 : Math.max(50, travelMs - press) },
       { kind: 'press', down: true, ms: press },
     ]);
   }

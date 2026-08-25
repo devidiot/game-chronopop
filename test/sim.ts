@@ -223,9 +223,11 @@ function runWatchProfiles(RUNS: number): void {
   const eyes: string[] = [];
 
   for (const skill of SKILLS) {
-    const label = `${skill.label}  (${(skill.delay[0] / 1000).toFixed(2)}~${(
-      skill.delay[1] / 1000
-    ).toFixed(2)}초)`;
+    const pace =
+      skill.delay[1] > 0
+        ? `${(skill.delay[0] / 1000).toFixed(2)}~${(skill.delay[1] / 1000).toFixed(2)}초`
+        : '지연 없음';
+    const label = `${skill.label}  (${pace})`;
     const results = Array.from({ length: RUNS }, () =>
       simulate({ skill: 'greedy', thinkMs: 0, watch: skill }),
     );
@@ -234,11 +236,18 @@ function runWatchProfiles(RUNS: number): void {
     // "4개 이상 터뜨릴 자리가 있었을 때 실제로 잡은 비율" — 실력의 눈 그 자체다
     const chances = results.reduce((a, r) => a + r.botBigChances, 0);
     const taken = results.reduce((a, r) => a + r.botBigTaken, 0);
+    const total = results.reduce((a, r) => a + r.botMoves, 0);
     eyes.push(
-      `  ${skill.label}: 큰 자리 ${chances}번 중 ${taken}번 잡음 ` +
-        `(${((taken / Math.max(1, chances)) * 100).toFixed(0)}%, 설정값 ${(
-          skill.sharp * 100
-        ).toFixed(0)}%)`,
+      `  ${skill.label.padEnd(4)} 큰 자리 ${String(chances).padStart(5)}번 중 ` +
+        `${String(taken).padStart(5)}번 잡음 (${((taken / Math.max(1, chances)) * 100)
+          .toFixed(0)
+          .padStart(3)}%)` +
+        ` · 둔 수 ${String(total).padStart(5)}번 중 4개 이상 ${(
+          (taken / Math.max(1, total)) *
+          100
+        )
+          .toFixed(0)
+          .padStart(3)}%`,
     );
   }
 

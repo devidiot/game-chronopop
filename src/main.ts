@@ -575,7 +575,8 @@ for (const skill of SKILLS) {
   const note = document.createElement('em');
   const lo = (skill.delay[0] / 1000).toFixed(2).replace(/0$/, '');
   const hi = (skill.delay[1] / 1000).toFixed(2).replace(/0$/, '');
-  note.textContent = `${skill.note} · ${lo}~${hi}초`;
+  const pace = skill.delay[1] > 0 ? `${lo}~${hi}초` : '지연 없음';
+  note.textContent = `${skill.note} · ${pace}`;
   btn.appendChild(note);
 
   btn.addEventListener('click', () => {
