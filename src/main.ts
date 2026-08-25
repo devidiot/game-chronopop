@@ -322,8 +322,9 @@ const bot = new Bot(engine, {
     engine.detonate(cell);
   },
   chance: () => {
-    // 섞기 버튼은 판 밖에 있다 — 손은 잠깐 치우고 버튼을 튕겨 보여준다
-    hand.park();
+    // 섞기 버튼은 판 밖이라 손이 닿지 않는다. 손을 지우면 눈이 놓치므로
+    // 그 자리에 둔 채 버튼만 튕겨 봇이 눌렀다는 걸 보여준다.
+    hand.lift();
     ui.pressButton('btn-chance');
     if (engine.eraseArmed) ui.setEraseArmed(engine.toggleErase());
     engine.useChance();
@@ -462,7 +463,13 @@ function startGame(skill: Skill | null = null): void {
       paused = false;
       ui.setPauseAvailable(true);
       last = performance.now();
-      if (skill) bot.start(skill);
+      if (skill) {
+        // 첫 수를 두러 가기 전부터 손이 판 위에 있어야 자연스럽다
+        const mid = (getBoardSize() - 1) / 2;
+        const p = renderer.cellCenter(mid, mid);
+        hand.appear(p.x, p.y);
+        bot.start(skill);
+      }
     },
   );
 }
@@ -813,6 +820,11 @@ if (watchDemo) {
   } else {
     startGame(watchDemo);
   }
+}
+
+// 개발 중에만 콘솔에서 속을 들여다볼 수 있게 열어둔다(빌드에서는 통째로 빠진다)
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).cp = { engine, bot, hand, renderer, ui };
 }
 
 // 오프라인 실행을 위한 서비스 워커 (개발 중에는 캐시가 방해되므로 제외)

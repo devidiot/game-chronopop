@@ -36,6 +36,27 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   if (!request.url.startsWith(self.location.origin)) return;
 
+  // 문서(index.html)만은 네트워크를 먼저 본다.
+  //
+  // 캐시부터 주면 새로 배포한 판이 항상 **한 박자 늦게** 도착한다.
+  // 첫 실행은 옛 index.html(=옛 해시의 JS)을 그대로 쓰고, 다음 실행에서야
+  // 새 판이 나오기 때문이다. 문서 하나는 몇 KB라 네트워크로 받아도 부담이
+  // 없고, 실패하면 아래처럼 캐시로 떨어지므로 오프라인 실행도 그대로다.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((c) => c || caches.match('./index.html'))),
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)

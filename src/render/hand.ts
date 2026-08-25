@@ -73,9 +73,23 @@ export class Hand {
   private step: Step | null = null;
   private t = 0;
 
+  /** 대기 중 살짝 떠다니게 하는 내부 시계(ms) */
+  private clock = 0;
+
   /** 손이 화면에 남아 있는가 — 프레임 루프가 계속 그려야 할지 판단한다 */
   get busy(): boolean {
     return this.alpha > 0.01 || this.wantAlpha > 0;
+  }
+
+  /** 아무 데나 손을 얹어 둔다 — 판이 시작될 때 손이 이미 있어야 자연스럽다 */
+  appear(x: number, y: number): void {
+    this.x = x;
+    this.y = y;
+    this.queue = [];
+    this.step = null;
+    this.press = 0;
+    this.grabbing = false;
+    this.wantAlpha = 1;
   }
 
   /** 그 자리로 손을 옮겨 짚는다 */
@@ -126,6 +140,8 @@ export class Hand {
   }
 
   update(dt: number): void {
+    this.clock += dt;
+
     const fade = dt / FADE_MS;
     this.alpha =
       this.wantAlpha > this.alpha
@@ -206,12 +222,19 @@ export class Hand {
       this.flipY = this.y > boardSize * 0.6;
     }
 
+    // 다음 수를 기다리는 동안에도 손은 가만히 굳어 있지 않는다.
+    // 멈춰 있으면 판에 그려 넣은 그림처럼 보여서 눈에서 놓치게 된다.
+    const resting = !this.step && this.queue.length === 0 && !this.grabbing;
+    const bob = resting ? Math.sin(this.clock / 540) * cell * 0.06 : 0;
+
     ctx.save();
     ctx.globalAlpha = this.alpha;
+    ctx.translate(0, bob);
 
     if (this.grabbing) this.drawTrail(ctx, cell);
     if (this.ripple > 0) this.drawRipple(ctx, cell);
-    this.drawHand(ctx, cell * 1.12);
+    this.drawTarget(ctx, cell);
+    this.drawHand(ctx, cell * 1.34);
 
     ctx.restore();
   }
@@ -229,6 +252,27 @@ export class Hand {
     ctx.beginPath();
     ctx.moveTo(this.grabX, this.grabY);
     ctx.lineTo(this.x, this.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * 손끝에 늘 깔아두는 표적.
+   *
+   * 손 그림만으로는 어느 칸을 짚었는지 헷갈리고, 판이 화려하게 터지는
+   * 동안에는 손 자체를 놓치기 쉽다. 밝은 고리 하나면 눈이 따라간다.
+   */
+  private drawTarget(ctx: CanvasRenderingContext2D, cell: number): void {
+    ctx.save();
+    ctx.globalAlpha = this.alpha * (0.35 + this.press * 0.45);
+    ctx.fillStyle = 'rgba(190, 245, 255, 0.3)';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, cell * (0.34 - this.press * 0.06), 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = this.alpha * (0.6 + this.press * 0.4);
+    ctx.strokeStyle = '#d8f7ff';
+    ctx.lineWidth = cell * 0.055;
     ctx.stroke();
     ctx.restore();
   }
@@ -264,22 +308,27 @@ export class Hand {
     const k = 1 - this.press * 0.1;
     ctx.scale(k, k);
 
-    const path = new Path2D();
+    // 손가락·주먹·엄지를 한 경로에 담는다.
+    // Path2D 대신 컨텍스트 경로를 쓴다 — 판 배경에서 이미 쓰고 있는 API 라
+    // 기기마다 되고 안 되고가 갈릴 일이 없다.
+    ctx.beginPath();
     // 검지 — 손끝이 원점이다. 길어야 어디를 짚었는지 또렷하다.
-    path.roundRect(-0.12 * s, 0, 0.24 * s, 0.8 * s, 0.12 * s);
+    ctx.roundRect(-0.12 * s, 0, 0.24 * s, 0.8 * s, 0.12 * s);
     // 주먹
-    path.roundRect(-0.22 * s, 0.56 * s, 0.72 * s, 0.58 * s, 0.24 * s);
+    ctx.roundRect(-0.22 * s, 0.56 * s, 0.72 * s, 0.58 * s, 0.24 * s);
     // 엄지
-    path.roundRect(-0.4 * s, 0.68 * s, 0.3 * s, 0.21 * s, 0.105 * s);
+    ctx.roundRect(-0.4 * s, 0.68 * s, 0.3 * s, 0.21 * s, 0.105 * s);
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = s * 0.2;
-    ctx.shadowOffsetY = s * 0.07;
+    // 판이 터지는 와중에도 손이 묻히지 않도록 어두운 후광을 깐다
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+    ctx.shadowBlur = s * 0.3;
+    ctx.shadowOffsetY = s * 0.06;
 
     ctx.strokeStyle = OUTLINE;
-    ctx.lineWidth = s * 0.09;
+    ctx.lineWidth = s * 0.1;
     ctx.lineJoin = 'round';
-    ctx.stroke(path);
+    ctx.stroke();
+    ctx.stroke(); // 두 번 그어 그림자를 짙게 — 어떤 배경에서도 떠 보인다
 
     ctx.shadowColor = 'transparent';
 
@@ -288,7 +337,7 @@ export class Hand {
     grad.addColorStop(0.5, SKIN_BASE);
     grad.addColorStop(1, SKIN_DARK);
     ctx.fillStyle = grad;
-    ctx.fill(path);
+    ctx.fill();
 
     // 손톱 — 이게 있어야 손끝이 어디인지 한눈에 보인다
     ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
