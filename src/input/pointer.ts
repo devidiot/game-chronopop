@@ -8,12 +8,15 @@ import type { Cell } from '../game/types';
  * 두 가지 조작을 모두 받는다.
  *  - 드래그(스와이프): 젬을 잡고 원하는 방향으로 민다
  *  - 탭 두 번: 젬을 고르고 인접한 젬을 누른다
+ *
+ * @param isLocked 참이면 입력을 통째로 무시한다(구경 모드 — 봇이 두는 중)
  */
 export function attachPointer(
   canvas: HTMLCanvasElement,
   engine: Engine,
   renderer: Renderer,
   onSwapAttempt: () => void,
+  isLocked: () => boolean = () => false,
 ): void {
   let startCell: Cell | null = null;
   let startX = 0;
@@ -33,6 +36,7 @@ export function attachPointer(
   };
 
   canvas.addEventListener('pointerdown', (e) => {
+    if (isLocked()) return;
     if (engine.phase !== 'idle') return;
     if (pointerId !== null) return;
 
@@ -75,6 +79,7 @@ export function attachPointer(
   });
 
   canvas.addEventListener('pointermove', (e) => {
+    if (isLocked()) return;
     if (e.pointerId !== pointerId || !startCell || swiped) return;
     if (engine.phase !== 'idle') return;
 

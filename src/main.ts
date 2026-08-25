@@ -1,6 +1,6 @@
 import './style.css';
 
-import { findHint } from './game/board';
+import { Bot, SKILLS, type Skill } from './game/autoplay';
 import {
   BOARD_SIZES,
   GEM_STYLES,
@@ -24,7 +24,7 @@ import {
   getSavedBoardSize,
   setSavedBoardSize,
 } from './game/storage';
-import type { GameResult, MatchGroup } from './game/types';
+import type { Cell, GameResult, MatchGroup } from './game/types';
 import { attachPointer } from './input/pointer';
 import { Effects } from './render/effects';
 import { drawFaceInto } from './render/gems';
@@ -49,8 +49,18 @@ let hudTimer = 0;
 let shake = 0;
 let lastTickSecond = -1;
 
+/**
+ * 구경 모드로 돌고 있는 판의 실력. null 이면 사람이 직접 하는 중이다.
+ * 게임이 끝나도 "다시 구경하기" 를 위해 그대로 들고 있는다.
+ */
+let watchSkill: Skill | null = null;
+
 /** 게임 오버 모달에서 확인을 누를 때까지 들고 있는 결과 */
-let pendingResult: { result: GameResult; isNewBest: boolean } | null = null;
+let pendingResult: {
+  result: GameResult;
+  isNewBest: boolean;
+  watchLabel: string | null;
+} | null = null;
 
 /** 큰 매치가 터진 순간 화면을 잠깐 얼린다 */
 function impact(stopMs: number, punchPower: number, flash: number): void {
@@ -255,20 +265,57 @@ const engine = new Engine({
     running = false;
     paused = false;
     ui.setPauseAvailable(false);
-    const isNewBest = addRecord({
-      score: result.score,
-      maxChain: result.maxChain,
-      biggestMatch: result.biggestMatch,
-      at: new Date().toISOString(),
-    });
+    bot.stop();
+
+    // 구경한 판은 기록에 남기지 않는다.
+    // 내가 세운 기록 사이에 컴퓨터 점수가 끼면 기록표가 뜻을 잃는다.
+    const isNewBest =
+      watchSkill === null &&
+      addRecord({
+        score: result.score,
+        maxChain: result.maxChain,
+        biggestMatch: result.biggestMatch,
+        at: new Date().toISOString(),
+      });
     ui.setBest(getBest());
     ui.setTime(0);
     sfx.gameOver();
     haptics.gameOver();
 
     // 곧바로 결과표로 넘기지 않고, 끝난 판을 잠깐 보여준다
-    pendingResult = { result, isNewBest };
+    pendingResult = { result, isNewBest, watchLabel: watchSkill?.label ?? null };
     window.setTimeout(() => ui.showGameOver(), 700);
+  },
+});
+
+// ------------------------------------------------------------------ 구경 모드
+
+/**
+ * 컴퓨터가 대신 두는 손.
+ *
+ * 봇에게 주는 건 화면 버튼과 **똑같은 동작**뿐이다. 엔진을 직접 주무르는
+ * 지름길이 없으므로 규칙도 제한시간도 사람이 할 때와 완전히 같다.
+ */
+const bot = new Bot(engine, {
+  select: (cell: Cell | null) => {
+    engine.selected = cell;
+    engine.idleMs = 0;
+  },
+  swap: (a: Cell, b: Cell) => {
+    if (engine.trySwap(a, b)) sfx.swap();
+  },
+  detonate: (cell: Cell) => {
+    engine.detonate(cell);
+  },
+  chance: () => {
+    if (engine.eraseArmed) ui.setEraseArmed(engine.toggleErase());
+    engine.useChance();
+  },
+  armErase: () => {
+    ui.setEraseArmed(engine.toggleErase());
+  },
+  erase: (kind: number) => {
+    engine.eraseKind(kind);
   },
 });
 
@@ -304,6 +351,9 @@ function frame(now: number): void {
   } else {
     if (running) {
       engine.update(dt);
+      // 구경 모드가 아니면 아무 일도 하지 않는다.
+      // 히트스톱·일시정지에 함께 묶여야 사람과 같은 조건이 된다.
+      bot.update(dt);
 
       // HUD는 0.1초에 한 번만 갱신한다.
       // 매 프레임 DOM을 만지면 그만큼 배터리를 더 쓴다.
@@ -358,7 +408,14 @@ function frame(now: number): void {
 
 // ------------------------------------------------------------------ 게임 흐름
 
-function startGame(): void {
+/**
+ * 새 판을 시작한다.
+ * @param skill 구경 모드로 열 실력. null 이면 사람이 직접 한다.
+ */
+function startGame(skill: Skill | null = null): void {
+  watchSkill = skill;
+  bot.stop();
+  ui.setWatching(skill?.label ?? null);
   ui.hideAll();
   effects.clear();
   engine.start();
@@ -382,6 +439,7 @@ function startGame(): void {
       paused = false;
       ui.setPauseAvailable(true);
       last = performance.now();
+      if (skill) bot.start(skill);
     },
   );
 }
@@ -408,6 +466,9 @@ function resumeGame(): void {
 function giveUp(): void {
   paused = false;
   running = false;
+  bot.stop();
+  watchSkill = null;
+  ui.setWatching(null);
   ui.hidePause();
   ui.setPauseAvailable(false);
   engine.phase = 'over';
@@ -422,26 +483,39 @@ function bind(id: string, fn: () => void): void {
 }
 
 bind('btn-chance', () => {
+  if (watchSkill) return; // 구경 중에는 사람 손이 끼어들지 않는다
   // 지우기를 준비 중이었다면 취소하고 섞는다
   if (engine.eraseArmed) ui.setEraseArmed(engine.toggleErase());
   engine.useChance();
 });
 bind('btn-erase', () => {
+  if (watchSkill) return;
   ui.setEraseArmed(engine.toggleErase());
 });
 bind('btn-gameover-ok', () => {
   ui.hideGameOver();
   if (pendingResult) {
-    ui.showResult(pendingResult.result, pendingResult.isNewBest);
+    ui.showResult(
+      pendingResult.result,
+      pendingResult.isNewBest,
+      pendingResult.watchLabel,
+    );
     pendingResult = null;
   }
 });
 bind('btn-pause', pauseGame);
 bind('btn-resume', resumeGame);
 bind('btn-give-up', giveUp);
-bind('btn-start', startGame);
-bind('btn-retry', startGame);
-bind('btn-home', () => ui.showTitle());
+bind('btn-start', () => startGame(null));
+// 구경한 판이었다면 같은 실력으로 한 판 더 본다
+bind('btn-retry', () => startGame(watchSkill));
+bind('btn-watch', () => ui.showWatch());
+bind('btn-watch-close', () => ui.hideWatch());
+bind('btn-home', () => {
+  watchSkill = null;
+  ui.setWatching(null);
+  ui.showTitle();
+});
 bind('btn-records', () => ui.showRecords());
 bind('btn-records-close', () => ui.hideRecords());
 bind('btn-help', () => ui.showHelp());
@@ -456,6 +530,14 @@ bind('btn-sound', () => {
   const btn = document.getElementById('btn-sound');
   if (btn) btn.textContent = on ? '🔊 소리 켬' : '🔇 소리 끔';
 });
+
+for (const btn of document.querySelectorAll<HTMLButtonElement>('#skill-row .skill-btn')) {
+  btn.addEventListener('click', () => {
+    sfx.unlock();
+    const skill = SKILLS.find((s) => s.id === btn.dataset.skill);
+    if (skill) startGame(skill);
+  });
+}
 
 // ------------------------------------------------------------------ 타이틀 장식
 
@@ -560,7 +642,13 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseGame();
 });
 
-attachPointer(ui.canvas, engine, renderer, () => sfx.swap());
+attachPointer(
+  ui.canvas,
+  engine,
+  renderer,
+  () => sfx.swap(),
+  () => watchSkill !== null,
+);
 
 // 보드를 만지는 것도 사용자 제스처다. iOS에서 소리가 잠겨 있으면 여기서 풀린다.
 ui.canvas.addEventListener('pointerdown', () => sfx.unlock());
@@ -637,6 +725,7 @@ if (params.has('gameover')) {
       earnedTime: 18.3,
     },
     isNewBest: true,
+    watchLabel: null,
   };
   ui.showGameOver();
 }
@@ -656,18 +745,23 @@ if (params.has('result')) {
   );
 }
 
-// ?bot 을 붙이면 알아서 둔다. 연출 확인용 데모 모드.
-if (params.has('bot')) {
-  window.setInterval(() => {
-    if (!running || engine.phase !== 'idle') return;
-    // 가끔 찬스도 써본다
-    if (engine.canUseChance && Math.random() < 0.2) {
-      engine.useChance();
-      return;
-    }
-    const move = findHint(engine.grid);
-    if (move) engine.trySwap(move[0], move[1]);
-  }, 260);
+// ?watch=rookie|skilled|master — 카운트다운부터 구경 모드로 연다.
+// ?bot 은 예전 이름 — 고수로 친다.
+const askedSkill = params.has('watch')
+  ? params.get('watch') || 'master'
+  : params.has('bot')
+    ? 'master'
+    : null;
+const watchDemo = SKILLS.find((s) => s.id === askedSkill);
+if (watchDemo) {
+  if (params.has('autostart')) {
+    // 이미 위에서 판이 돌고 있다 — 손만 붙여준다
+    watchSkill = watchDemo;
+    ui.setWatching(watchDemo.label);
+    bot.start(watchDemo);
+  } else {
+    startGame(watchDemo);
+  }
 }
 
 // 오프라인 실행을 위한 서비스 워커 (개발 중에는 캐시가 방해되므로 제외)

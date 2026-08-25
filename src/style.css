@@ -842,3 +842,83 @@ button.small {
     opacity: 0;
   }
 }
+
+/* ---------- 게임 구경(구경 모드) ---------- */
+
+/* HUD 한가운데에 지금 누가 두고 있는지 띄운다 */
+#watch-tag {
+  align-self: center;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(77, 216, 255, 0.14);
+  border: 1px solid rgba(77, 216, 255, 0.4);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  animation: watchPulse 2.4s ease-in-out infinite;
+}
+
+#watch-tag.hidden {
+  display: none;
+}
+
+@keyframes watchPulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* 봇이 두는 동안에는 사람 손이 끼어들지 못하게 막는다 */
+body.watching #foot .chance {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+body.watching #board {
+  cursor: default;
+}
+
+/* 실력 고르기 */
+.skill-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.skill-btn {
+  margin-top: 0;
+  padding: 13px 16px;
+  text-align: left;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  line-height: 1.25;
+}
+
+.skill-btn em {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  font-style: normal;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.tag.small-note {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+/* 결과 화면의 구경 꼬리표 — 신기록 배지와 달리 차분한 색 */
+.badge.watch {
+  background: rgba(77, 216, 255, 0.16);
+  border: 1px solid rgba(77, 216, 255, 0.42);
+  color: var(--accent);
+  font-weight: 700;
+}

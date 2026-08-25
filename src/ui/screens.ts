@@ -31,6 +31,8 @@ export class UI {
   private helpScreen = must('help-screen');
   private pauseScreen = must('pause-screen');
   private gameOverScreen = must('gameover-screen');
+  private watchScreen = must('watch-screen');
+  private watchTag = must('watch-tag');
   private pauseBtn = must<HTMLButtonElement>('btn-pause');
   private countdownEl = must('countdown');
 
@@ -171,6 +173,7 @@ export class UI {
     this.helpScreen.classList.add('hidden');
     this.pauseScreen.classList.add('hidden');
     this.gameOverScreen.classList.add('hidden');
+    this.watchScreen.classList.add('hidden');
     this.setPauseAvailable(false);
   }
 
@@ -181,6 +184,25 @@ export class UI {
     this.helpScreen.classList.add('hidden');
     this.pauseScreen.classList.add('hidden');
     this.gameOverScreen.classList.add('hidden');
+    this.watchScreen.classList.add('hidden');
+  }
+
+  showWatch(): void {
+    this.watchScreen.classList.remove('hidden');
+  }
+
+  hideWatch(): void {
+    this.watchScreen.classList.add('hidden');
+  }
+
+  /**
+   * 구경 중임을 화면에 알린다.
+   * null 이면 사람이 직접 하는 중 — 표시를 지우고 손도 다시 풀어준다.
+   */
+  setWatching(label: string | null): void {
+    document.body.classList.toggle('watching', label !== null);
+    this.watchTag.classList.toggle('hidden', label === null);
+    if (label) this.watchTag.textContent = `👀 구경 · ${label}`;
   }
 
   showHelp(): void {
@@ -214,7 +236,10 @@ export class UI {
     this.pauseScreen.classList.add('hidden');
   }
 
-  showResult(result: GameResult, isNewBest: boolean): void {
+  /**
+   * @param watchLabel 구경 모드였다면 실력 이름 — 기록에 남지 않았음을 알린다
+   */
+  showResult(result: GameResult, isNewBest: boolean, watchLabel: string | null = null): void {
     must('final-score').textContent = result.score.toLocaleString('ko-KR');
     must('final-combo').textContent = `${result.maxCombo}`;
     must('final-chain').textContent = `${result.maxChain}`;
@@ -222,6 +247,13 @@ export class UI {
     must('final-time').textContent = `${result.survived.toFixed(1)}s`;
     must('final-earned').textContent = `+${result.earnedTime.toFixed(1)}s`;
     must('new-record').classList.toggle('hidden', !isNewBest);
+
+    const watchBadge = must('result-watch');
+    watchBadge.classList.toggle('hidden', !watchLabel);
+    if (watchLabel) watchBadge.textContent = `👀 구경 · ${watchLabel} — 기록에 남지 않습니다`;
+    must('result-title').textContent = watchLabel ? '구경 끝' : 'TIME UP';
+    must('btn-retry').textContent = watchLabel ? '다시 구경하기' : '다시 하기';
+
     this.resultScreen.classList.remove('hidden');
   }
 

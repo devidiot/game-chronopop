@@ -33,6 +33,7 @@
             <span class="label">SCORE</span>
             <b id="score">0</b>
           </div>
+          <div id="watch-tag" class="hidden">👀 구경 · 고수</div>
           <div class="stat right">
             <span class="label">BEST</span>
             <b id="best">0</b>
@@ -77,6 +78,7 @@
             </div>
           </div>
           <button id="btn-start" class="primary">게임 시작</button>
+          <button id="btn-watch" class="ghost">게임 구경</button>
           <button id="btn-records" class="ghost">기록 보기</button>
           <button id="btn-help" class="ghost">게임 설명</button>
           <div class="mute-row">
@@ -95,6 +97,7 @@
             <b id="final-score">0</b>
           </div>
           <div id="new-record" class="badge hidden">🏆 신기록!</div>
+          <div id="result-watch" class="badge watch hidden">👀 구경 모드 — 기록에 남지 않습니다</div>
           <div class="result-grid">
             <div><span class="label">최대 콤보</span><b id="final-combo">0</b></div>
             <div><span class="label">최대 체인</span><b id="final-chain">0</b></div>
@@ -112,6 +115,30 @@
         <div class="panel compact">
           <h2 class="gameover-title">GAME OVER</h2>
           <button id="btn-gameover-ok" class="primary">확인</button>
+        </div>
+      </section>
+
+      <!-- 게임 구경: 실력 고르기 -->
+      <section id="watch-screen" class="overlay hidden">
+        <div class="panel">
+          <h2>게임 구경</h2>
+          <p class="tag">
+            컴퓨터가 사람처럼 대신 플레이합니다.<br />
+            규칙과 조건은 똑같고, <b>손이 빠른 정도</b>만 다릅니다.
+          </p>
+          <div id="skill-row" class="skill-row" role="group" aria-label="실력">
+            <button class="skill-btn" data-skill="rookie">
+              🐣 초보<em>한 수 걸러 한 번 고민 · 0.9~1.4초</em>
+            </button>
+            <button class="skill-btn" data-skill="skilled">
+              🙂 중수<em>또박또박 이어간다 · 0.55~0.85초</em>
+            </button>
+            <button class="skill-btn" data-skill="master">
+              😎 고수<em>손이 쉬지 않는다 · 0.28~0.45초</em>
+            </button>
+          </div>
+          <p class="tag small-note">운이 나쁘면 고수도 초보만 한 점수가 나옵니다</p>
+          <button id="btn-watch-close" class="ghost">뒤로</button>
         </div>
       </section>
 

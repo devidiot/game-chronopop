@@ -6,6 +6,7 @@
  *
  *   npm run sim
  */
+import { Bot, SKILLS, type Skill as WatchSkill } from '../src/game/autoplay';
 import { findBestMove, findHint } from '../src/game/board';
 import {
   BOARD_SIZES,
@@ -25,6 +26,11 @@ export interface SimOptions {
   thinkMs: number;
   /** 찬스가 생기는 대로 바로 쓴다 (찬스가 밸런스에 주는 상한을 보려는 용도) */
   useChance?: boolean;
+  /**
+   * 구경 모드 봇에게 맡긴다 — 화면에서 도는 것과 **같은 봇**이다.
+   * 이걸 주면 위 skill/thinkMs 는 무시된다.
+   */
+  watch?: WatchSkill;
 }
 
 /** 게임 결과에 시뮬레이션에서만 세는 값을 얹은 것 */
@@ -84,6 +90,33 @@ export function simulate(opts: SimOptions): SimResult {
 
   engine.start();
 
+  // 구경 모드는 게임에서 쓰는 봇을 그대로 돌린다.
+  // 여기서 나오는 수치가 곧 화면에서 보게 될 수치다.
+  const bot = opts.watch
+    ? new Bot(engine, {
+        select: (cell) => {
+          engine.selected = cell;
+        },
+        swap: (a, b) => {
+          engine.trySwap(a, b);
+        },
+        detonate: (cell) => {
+          engine.detonate(cell);
+        },
+        chance: () => {
+          if (engine.eraseArmed) engine.toggleErase();
+          engine.useChance();
+        },
+        armErase: () => {
+          engine.toggleErase();
+        },
+        erase: (kind) => {
+          engine.eraseKind(kind);
+        },
+      })
+    : null;
+  if (bot && opts.watch) bot.start(opts.watch);
+
   const DT = 1000 / 60;
   let thinkLeft = opts.thinkMs;
   let guard = 0;
@@ -91,6 +124,11 @@ export function simulate(opts: SimOptions): SimResult {
   while (!result && guard++ < 200_000) {
     engine.update(DT);
     if (result) break;
+
+    if (bot) {
+      bot.update(DT);
+      continue;
+    }
 
     if (engine.phase === 'idle') {
       if (opts.useChance && engine.canUseChance) {
@@ -150,11 +188,28 @@ export function main(): void {
     setBoardSize(size);
     console.log(`\n${'='.repeat(20)}  ${size} × ${size}  ${'='.repeat(20)}`);
     runProfiles(RUNS);
+    runWatchProfiles(RUNS);
   }
 
   console.log(
     '\n생존 시간이 실력에 따라 늘어나되 상한 근처에서 완만해지면 밸런스가 맞는 것이다.\n',
   );
+}
+
+/** 구경 모드 세 실력 — 화면에서 도는 봇을 그대로 돌린 결과 */
+function runWatchProfiles(RUNS: number): void {
+  console.log(`\n[게임 구경] 같은 봇, delay 만 다름 · 각 ${RUNS}판\n`);
+  printHeader();
+
+  for (const skill of SKILLS) {
+    const label = `${skill.label}  (${(skill.delay[0] / 1000).toFixed(2)}~${(
+      skill.delay[1] / 1000
+    ).toFixed(2)}초)`;
+    printRow(
+      label,
+      Array.from({ length: RUNS }, () => simulate({ skill: 'greedy', thinkMs: 0, watch: skill })),
+    );
+  }
 }
 
 function runProfiles(RUNS: number): void {
@@ -170,6 +225,17 @@ function runProfiles(RUNS: number): void {
   ];
 
   console.log(`\n제한시간 ${START_TIME}초 시작 / 상한 ${MAX_TIME}초 · 각 ${RUNS}판\n`);
+  printHeader();
+
+  for (const { label, opts } of profiles) {
+    printRow(
+      label,
+      Array.from({ length: RUNS }, () => simulate(opts)),
+    );
+  }
+}
+
+function printHeader(): void {
   console.log(
     '실력'.padEnd(30),
     '평균점수'.padStart(10),
@@ -184,9 +250,10 @@ function runProfiles(RUNS: number): void {
     '폭탄'.padStart(6),
   );
   console.log('-'.repeat(96));
+}
 
-  for (const { label, opts } of profiles) {
-    const results = Array.from({ length: RUNS }, () => simulate(opts));
+function printRow(label: string, results: SimResult[]): void {
+  {
     const score = stats(results.map((r) => r.score));
     const survived = stats(results.map((r) => r.survived));
     const earned = stats(results.map((r) => r.earnedTime));
