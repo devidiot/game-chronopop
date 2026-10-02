@@ -41,6 +41,8 @@ export class UI {
   private feverBanner = must('fever-banner');
   private recordsSize = must('records-size');
   private recordsNote = must('records-note');
+  private shareBtn = must<HTMLButtonElement>('btn-share');
+  private shareNote = must('share-note');
 
   private chainTimer = 0;
   private gainTimer = 0;
@@ -250,8 +252,14 @@ export class UI {
 
   /**
    * @param watchLabel 구경 모드였다면 실력 이름 — 기록에 남지 않았음을 알린다
+   * @param canShare 상위권에 들어 공유 버튼을 보여줄지
    */
-  showResult(result: GameResult, isNewBest: boolean, watchLabel: string | null = null): void {
+  showResult(
+    result: GameResult,
+    isNewBest: boolean,
+    watchLabel: string | null = null,
+    canShare = false,
+  ): void {
     must('final-score').textContent = result.score.toLocaleString('ko-KR');
     must('final-combo').textContent = `${result.maxCombo}`;
     must('final-chain').textContent = `${result.maxChain}`;
@@ -266,7 +274,21 @@ export class UI {
     must('result-title').textContent = watchLabel ? '구경 끝' : 'TIME UP';
     must('btn-retry').textContent = watchLabel ? '다시 구경하기' : '다시 하기';
 
+    this.shareBtn.classList.toggle('hidden', !canShare);
+    this.shareBtn.disabled = false;
+    this.shareNote.textContent = '';
+
     this.resultScreen.classList.remove('hidden');
+  }
+
+  /** 공유 버튼 아래 안내 줄. 공유 결과를 여기에 적는다 */
+  setShareNote(text: string): void {
+    this.shareNote.textContent = text;
+  }
+
+  /** 공유 시트가 떠 있는 동안 버튼을 두 번 누르지 못하게 */
+  setShareBusy(busy: boolean): void {
+    this.shareBtn.disabled = busy;
   }
 
   showRecords(): void {

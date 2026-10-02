@@ -27,6 +27,7 @@ import {
   hydrateRecords,
   importRecords,
   getSavedBoardSize,
+  rankOf,
   setSavedBoardSize,
 } from './game/storage';
 import type { Cell, GameResult, MatchGroup } from './game/types';
@@ -36,6 +37,14 @@ import { drawFaceInto } from './render/gems';
 import { Hand } from './render/hand';
 import { Renderer } from './render/renderer';
 import { UI } from './ui/screens';
+import {
+  SHARE_RANK_LIMIT,
+  canvasToFile,
+  renderShareCard,
+  shareImage,
+  shareText,
+  type ShareCardData,
+} from './ui/share-card';
 
 const ui = new UI();
 const renderer = new Renderer(ui.canvas);
@@ -68,7 +77,15 @@ let pendingResult: {
   result: GameResult;
   isNewBest: boolean;
   watchLabel: string | null;
+  /** 기록표 등수(1부터). 구경 모드거나 표에서 밀려났으면 0 */
+  rank: number;
 } | null = null;
+
+/**
+ * 결과 화면에 띄운 공유 카드. 사파리는 버튼을 누른 직후에만 공유 시트를 열어
+ * 주므로, 화면을 띄울 때 미리 만들어 두고 누르면 바로 넘긴다.
+ */
+let shareReady: { file: Promise<File | null>; text: string } | null = null;
 
 /** 큰 매치가 터진 순간 화면을 잠깐 얼린다 */
 function impact(stopMs: number, punchPower: number, flash: number): void {
@@ -278,21 +295,21 @@ const engine = new Engine({
 
     // 구경한 판은 기록에 남기지 않는다.
     // 내가 세운 기록 사이에 컴퓨터 점수가 끼면 기록표가 뜻을 잃는다.
-    const isNewBest =
-      watchSkill === null &&
-      addRecord({
-        score: result.score,
-        maxChain: result.maxChain,
-        biggestMatch: result.biggestMatch,
-        at: new Date().toISOString(),
-      });
+    const entry = {
+      score: result.score,
+      maxChain: result.maxChain,
+      biggestMatch: result.biggestMatch,
+      at: new Date().toISOString(),
+    };
+    const isNewBest = watchSkill === null && addRecord(entry);
+    const rank = watchSkill === null ? rankOf(entry) : 0;
     ui.setBest(getBest());
     ui.setTime(0);
     sfx.gameOver();
     haptics.gameOver();
 
     // 곧바로 결과표로 넘기지 않고, 끝난 판을 잠깐 보여준다
-    pendingResult = { result, isNewBest, watchLabel: watchSkill?.label ?? null };
+    pendingResult = { result, isNewBest, rank, watchLabel: watchSkill?.label ?? null };
     window.setTimeout(() => ui.showGameOver(), 700);
   },
 });
@@ -510,6 +527,29 @@ function giveUp(): void {
   ui.showTitle();
 }
 
+/**
+ * 결과 화면을 띄운다. 상위권이면 공유 카드를 미리 그려 둔다.
+ * 구경한 판은 기록에 없으니 등수도 0 이고, 공유 버튼도 뜨지 않는다.
+ */
+function showResultScreen(r: NonNullable<typeof pendingResult>): void {
+  const canShare = r.rank >= 1 && r.rank <= SHARE_RANK_LIMIT;
+  ui.showResult(r.result, r.isNewBest, r.watchLabel, canShare);
+  shareReady = null;
+  if (!canShare) return;
+
+  const data: ShareCardData = {
+    result: r.result,
+    rank: r.rank,
+    isNewBest: r.isNewBest,
+    boardSize: getBoardSize(),
+    at: new Date(),
+  };
+  shareReady = {
+    file: canvasToFile(renderShareCard(data), 'crush-pang-result.png'),
+    text: shareText(data),
+  };
+}
+
 function bind(id: string, fn: () => void): void {
   document.getElementById(id)?.addEventListener('click', () => {
     sfx.unlock();
@@ -530,12 +570,28 @@ bind('btn-erase', () => {
 bind('btn-gameover-ok', () => {
   ui.hideGameOver();
   if (pendingResult) {
-    ui.showResult(
-      pendingResult.result,
-      pendingResult.isNewBest,
-      pendingResult.watchLabel,
-    );
+    showResultScreen(pendingResult);
     pendingResult = null;
+  }
+});
+bind('btn-share', async () => {
+  if (!shareReady) return;
+  ui.setShareBusy(true);
+  ui.setShareNote('');
+  try {
+    const file = await shareReady.file;
+    const outcome = file ? await shareImage(file, shareReady.text) : 'failed';
+    ui.setShareNote(
+      outcome === 'shared'
+        ? '공유했습니다'
+        : outcome === 'saved'
+          ? '이미지를 저장했습니다. 사진이나 파일 앱에서 확인하세요'
+          : outcome === 'failed'
+            ? '여기서는 공유할 수 없습니다'
+            : '',
+    );
+  } finally {
+    ui.setShareBusy(false);
   }
 });
 bind('btn-pause', pauseGame);
@@ -829,15 +885,16 @@ if (params.has('gameover')) {
       earnedTime: 18.3,
     },
     isNewBest: true,
+    rank: 1,
     watchLabel: null,
   };
   ui.showGameOver();
 }
 
-// ?result 는 결과 화면만 띄운다(레이아웃 확인용)
+// ?result 는 결과 화면만 띄운다(레이아웃 확인용). ?result=3 처럼 등수를 줄 수 있다.
 if (params.has('result')) {
-  ui.showResult(
-    {
+  showResultScreen({
+    result: {
       score: 12345,
       maxChain: 4,
       maxCombo: 9,
@@ -845,8 +902,24 @@ if (params.has('result')) {
       survived: 78.3,
       earnedTime: 18.3,
     },
-    true,
-  );
+    isNewBest: true,
+    rank: Number(params.get('result')) || 1,
+    watchLabel: null,
+  });
+}
+
+// ?card=3 은 공유 카드만 화면에 꽉 채워 띄운다(그림 확인용). 숫자는 등수.
+if (params.has('card')) {
+  const card = renderShareCard({
+    result: { score: 12345, maxChain: 4, maxCombo: 9, biggestMatch: 5, survived: 78.3, earnedTime: 18.3 },
+    rank: Number(params.get('card')) || 1,
+    isNewBest: params.get('card') === '1',
+    boardSize: getBoardSize(),
+    at: new Date(),
+  });
+  card.style.cssText =
+    'position:fixed;inset:0;width:100%;height:100%;object-fit:contain;z-index:99;background:#000';
+  document.body.appendChild(card);
 }
 
 // ?watch=rookie|skilled|master — 카운트다운부터 구경 모드로 연다.

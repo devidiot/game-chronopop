@@ -178,6 +178,15 @@ export function addRecord(entry: RecordEntry): boolean {
   return entry.score > prevBest;
 }
 
+/**
+ * 저장된 기록표에서 이 기록이 몇 등인지(1부터) 돌려준다.
+ * 표에서 밀려났으면 0. 공유 버튼을 띄울지 가릴 때 쓴다.
+ */
+export function rankOf(entry: Pick<RecordEntry, 'score' | 'at'>): number {
+  const i = getRecords().findIndex((r) => r.at === entry.at && r.score === entry.score);
+  return i < 0 ? 0 : i + 1;
+}
+
 /** 모든 보드 크기의 기록을 지운다 — "기록 지우기"는 전부 지우는 것으로 읽힌다 */
 export function clearRecords(): void {
   for (const size of BOARD_SIZES) {

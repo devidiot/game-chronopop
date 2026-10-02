@@ -742,6 +742,27 @@ button.small {
   margin-top: 0;
 }
 
+/* 상위 5위 안에 들었을 때만 뜨는 공유 버튼 — 눈에 띄되 "다시 하기" 보다는 조용하게 */
+button.share {
+  border-color: rgba(77, 216, 255, 0.45);
+  color: var(--accent);
+}
+
+button.share.hidden {
+  display: none;
+}
+
+/* 공유 결과 안내 한 줄. 비어 있으면 자리를 차지하지 않는다. */
+.share-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.share-note:empty {
+  display: none;
+}
+
 /* 기록 화면의 백업 안내 한 줄 */
 .records-note {
   margin: 8px 0 0;
