@@ -40,6 +40,7 @@ export class UI {
   private flashEl = must('flash');
   private feverBanner = must('fever-banner');
   private recordsSize = must('records-size');
+  private recordsNote = must('records-note');
 
   private chainTimer = 0;
   private gainTimer = 0;
@@ -287,6 +288,11 @@ export class UI {
 
   hideRecords(): void {
     this.recordsScreen.classList.add('hidden');
+  }
+
+  /** 기록 화면 아래 안내 줄. 백업·복원 결과를 여기에 적는다 */
+  setRecordsNote(text: string): void {
+    this.recordsNote.textContent = text;
   }
 
   /** 3 → 2 → 1 → GO! 카운트다운 후 콜백 */

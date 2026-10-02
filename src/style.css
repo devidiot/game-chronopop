@@ -730,14 +730,23 @@ button.small {
   color: var(--muted);
 }
 
-.mute-row {
+.mute-row,
+.backup-row {
   display: flex;
   gap: 8px;
   margin-top: 6px;
 }
 
-.mute-row button {
+.mute-row button,
+.backup-row button {
   margin-top: 0;
+}
+
+/* 기록 화면의 백업 안내 한 줄 */
+.records-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 /* 기록 화면 제목 옆의 "7 × 7" 꼬리표 */

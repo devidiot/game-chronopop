@@ -16,7 +16,7 @@ src/
     match.ts           3연속 탐색과 덩어리 묶기(BFS)
     scoring.ts         점수·시간 보상 계산
     engine.ts          게임 상태 기계 (아래 참고)
-    storage.ts         기록·설정 저장 (localStorage, 기록은 보드 크기별)
+    storage.ts         기록·설정 저장 (기록은 localStorage+IndexedDB 이중 저장, 보드 크기별, 백업 코드)
     audio.ts           WebAudio 합성 효과음 — 오디오 파일 없음
     autoplay.ts        구경 모드 봇 — 사람과 같은 입구만 쓴다(눈·손만 다름)
 
@@ -262,3 +262,19 @@ URL 뒤에 붙여 쓴다.
 
 `?watch=rookie|skilled|master|grandmaster` 로 열면 곧바로 구경 모드로 시작한다.
 `?autostart&hand=행,열` 은 손을 끄는 도중에 멈춰 세운다(그림 확인용).
+
+## 기록 저장 (game/storage.ts)
+
+기록은 **localStorage 와 IndexedDB 두 곳에 똑같이** 적는다. 홈 화면 웹앱에서는
+localStorage 만 비워지는 일이 있어서다(iOS 는 메모리가 부족하거나 앱을 갱신할
+때 localStorage 를 먼저 버리는 경우가 보고돼 있다). 평소 읽기는 동기인
+localStorage 로 하고, 시작할 때 `hydrateRecords()` 가 두 저장소를 합쳐
+양쪽에 다시 적는다. 그래서 둘 중 하나만 살아 있어도 기록이 돌아온다.
+같은 때 `navigator.storage.persist()` 로 저장소를 함부로 비우지 말라고
+브라우저에 요청한다.
+
+두 저장소가 함께 지워지는 경우(앱 삭제 후 재설치, 기기 교체)를 위해 기록
+화면에 **백업 코드**가 있다. `exportRecords()` 는 모든 보드 크기의 기록을
+`CP1.` 접두사가 붙은 base64 한 줄로 만들고, `importRecords()` 는 그 코드를
+기존 기록과 합친다. 같은 시각·같은 점수는 하나로 보므로 코드를 여러 번
+넣어도 중복이 생기지 않는다.

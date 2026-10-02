@@ -21,7 +21,11 @@ import { haptics } from './game/haptics';
 import {
   addRecord,
   clearRecords,
+  exportRecords,
   getBest,
+  hasAnyRecord,
+  hydrateRecords,
+  importRecords,
   getSavedBoardSize,
   setSavedBoardSize,
 } from './game/storage';
@@ -556,6 +560,42 @@ bind('btn-records-clear', () => {
   ui.setBest(0);
   ui.showRecords();
 });
+
+// ------------------------------------------------------------------ 기록 백업
+
+/**
+ * 기록을 한 줄짜리 코드로 내보낸다.
+ * 클립보드에 복사해 메모장·메신저에 붙여 두게 하고, 클립보드가 막혀 있으면
+ * 코드를 띄워 직접 복사하게 한다.
+ */
+bind('btn-records-export', async () => {
+  if (!hasAnyRecord()) {
+    ui.setRecordsNote('아직 내보낼 기록이 없습니다');
+    return;
+  }
+  const code = exportRecords();
+  try {
+    await navigator.clipboard.writeText(code);
+    ui.setRecordsNote('백업 코드를 복사했습니다. 메모장 등에 붙여 두세요');
+  } catch {
+    window.prompt('이 코드를 복사해 두세요', code);
+  }
+});
+
+bind('btn-records-import', () => {
+  const code = window.prompt('백업 코드를 붙여 넣으세요');
+  if (!code) return;
+  try {
+    const added = importRecords(code);
+    ui.setBest(getBest());
+    ui.showRecords();
+    ui.setRecordsNote(
+      added > 0 ? `기록 ${added}개를 되살렸습니다` : '이미 있는 기록이라 바뀐 것이 없습니다',
+    );
+  } catch {
+    ui.setRecordsNote('백업 코드가 아닙니다. 복사한 코드를 그대로 붙여 넣으세요');
+  }
+});
 bind('btn-sound', () => {
   const on = sfx.toggle();
   const btn = document.getElementById('btn-sound');
@@ -706,6 +746,11 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 // ------------------------------------------------------------------ 시작
 
 applyBoardSize(getSavedBoardSize());
+
+// localStorage 가 비워졌어도 IndexedDB 쪽 기록이 남아 있으면 여기서 되살아난다
+void hydrateRecords().then((restored) => {
+  if (restored) ui.setBest(getBest());
+});
 ui.setScore(0);
 ui.setTime(60);
 ui.setChances(0); // 타이틀에서는 비활성
