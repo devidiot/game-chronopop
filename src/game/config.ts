@@ -64,7 +64,7 @@ export function baseScore(size: number): number {
   if (size <= 3) return 60;
   if (size === 4) return 180;
   if (size === 5) return 400;
-  return 700 + (size - 6) * 250;
+  return 650 + (size - 6) * 300;
 }
 
 /**
@@ -80,8 +80,20 @@ export function baseTime(size: number): number {
   return 3.0 + (size - 6) * 0.6;
 }
 
-/** 연쇄(체인) 배수 — chain 1회차부터 순서대로 */
-export const CHAIN_MULT = [1, 1.5, 2.2, 3.0, 4.0, 5.0, 6.0];
+/**
+ * 연쇄(체인) 배수 — chain 1회차부터 순서대로.
+ * 5연쇄부터는 한 단계마다 1씩 오르고, 11연쇄에서 10배가 된 뒤 그대로 이어진다.
+ */
+export const CHAIN_MULT = [1, 1.5, 2.2, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
+
+/**
+ * 연쇄가 깊어질수록 터지는 소리가 커진다.
+ * 1연쇄는 기본 음량, 2연쇄부터 커지기 시작해 이 단계에서 최대가 되고 그 뒤로는 그대로다.
+ */
+export const CHAIN_SOUND_MAX_AT = 5;
+
+/** 최대 연쇄에서의 음량 배수 (1연쇄 = 1.0) */
+export const CHAIN_SOUND_GAIN = 1.6;
 
 // ---------------------------------------------------------------- 콤보
 
@@ -97,9 +109,25 @@ export const COMBO_WINDOW_MS = 1200;
 /** 이 횟수부터 화면에 "N COMBO"를 띄운다 */
 export const COMBO_MIN_SHOW = 3;
 
-/** 콤보 1회당 점수 보너스와 상한 (최대 2배) */
-export const COMBO_STEP = 0.1;
+/**
+ * 콤보 1회당 점수 보너스와 상한.
+ * 콤보 n회면 +11% × n 이라 5콤보는 +55%, 10콤보에서 +110% 로 최대가 되고
+ * 그 뒤로는 그대로 유지된다.
+ */
+export const COMBO_STEP = 0.11;
 export const COMBO_MAX_STACK = 10;
+
+// ---------------------------------------------------------------- 연쇄 젬 생성
+
+/**
+ * 연쇄가 깊을수록 새로 떨어지는 젬이 바로 아래 젬과 같은 종류일 확률이 오른다.
+ * 확률 = 연쇄 배수 × 이 값 (1배 = 3%, 10배 = 30%).
+ * 좁아서 연쇄를 잇기 어려운 7×7에서만 켠다.
+ */
+export const STICKY_SPAWN_PER_MULT = 0.03;
+/** 확률 상한. 너무 높으면 연쇄가 스스로를 먹여 살려 끝나지 않는다 */
+export const STICKY_SPAWN_MAX = 0.1;
+export const STICKY_SPAWN_BOARD: BoardSize = 7;
 
 // ---------------------------------------------------------------- 연쇄 폭발
 

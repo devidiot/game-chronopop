@@ -1,4 +1,4 @@
-import { COMBO_MIN_SHOW } from './config';
+import { CHAIN_SOUND_GAIN, CHAIN_SOUND_MAX_AT, COMBO_MIN_SHOW } from './config';
 import { getSoundEnabled, setSoundEnabled } from './storage';
 
 /**
@@ -32,7 +32,17 @@ class Sfx {
       this.ctx = new Ctor();
       this.master = this.ctx.createGain();
       this.master.gain.value = 0.9;
-      this.master.connect(this.ctx.destination);
+
+      // 깊은 연쇄에서 소리를 키우므로, 여러 소리가 겹칠 때 찌그러지지 않게
+      // 컴프레서를 거쳐 내보낸다
+      const limiter = this.ctx.createDynamicsCompressor();
+      limiter.threshold.value = -10;
+      limiter.knee.value = 12;
+      limiter.ratio.value = 6;
+      limiter.attack.value = 0.002;
+      limiter.release.value = 0.12;
+      this.master.connect(limiter);
+      limiter.connect(this.ctx.destination);
       this.noiseBuf = this.makeNoiseBuffer(this.ctx);
 
       // 오디오 세션 종류 선택. Safari 16.4+ 에만 있다.
@@ -179,28 +189,44 @@ class Sfx {
   // ------------------------------------------------------------ 효과음
 
   /**
+   * 연쇄 단계에 따른 소리 세기.
+   * 1연쇄 = 0, CHAIN_SOUND_MAX_AT 연쇄부터 = 1 로 고정된다.
+   * 음정과 음량이 함께 이 값을 따라 올라가므로, 최대 단계 뒤로는 같은 소리가 이어진다.
+   */
+  private chainLevel(chain: number): number {
+    return Math.min(Math.max(chain - 1, 0), CHAIN_SOUND_MAX_AT - 1) / (CHAIN_SOUND_MAX_AT - 1);
+  }
+
+  /** 연쇄 단계에 따른 음량 배수 (1연쇄 1.0 → 최대 연쇄 CHAIN_SOUND_GAIN) */
+  private chainGain(chain: number): number {
+    return 1 + (CHAIN_SOUND_GAIN - 1) * this.chainLevel(chain);
+  }
+
+  /**
    * 젬이 터지는 소리.
-   * @param chain 연쇄 단계(1부터) — 깊을수록 음정이 올라간다
+   * @param chain 연쇄 단계(1부터) — 깊을수록 음정이 오르고 소리가 커진다
    * @param size  매치 크기 — 클수록 두껍고 묵직해진다
    */
   pop(chain: number, size: number): void {
-    const pitch = Math.pow(2, Math.min(chain - 1, 10) / 12);
+    const pitch = Math.pow(2, (this.chainLevel(chain) * (CHAIN_SOUND_MAX_AT - 1)) / 12);
+    const vol = this.chainGain(chain);
     const big = Math.min(Math.max(size - 3, 0), 3); // 0(3매치) ~ 3(6매치 이상)
 
-    this.noise(0.09 + big * 0.035, 0.3 + big * 0.12, (1900 - big * 380) * pitch, 1.1);
-    this.boom(160 * pitch, 0.17 + big * 0.07, 0.2 + big * 0.09);
-    this.tone(640 * pitch, 0.11, 'triangle', 0.12 + big * 0.03);
+    this.noise(0.09 + big * 0.035, (0.3 + big * 0.12) * vol, (1900 - big * 380) * pitch, 1.1);
+    this.boom(160 * pitch, 0.17 + big * 0.07, (0.2 + big * 0.09) * vol);
+    this.tone(640 * pitch, 0.11, 'triangle', (0.12 + big * 0.03) * vol);
 
-    if (big >= 2) this.tone(980 * pitch, 0.2, 'sine', 0.11);
-    if (big >= 3) this.tone(1320 * pitch, 0.26, 'sine', 0.09);
+    if (big >= 2) this.tone(980 * pitch, 0.2, 'sine', 0.11 * vol);
+    if (big >= 3) this.tone(1320 * pitch, 0.26, 'sine', 0.09 * vol);
   }
 
   /** 주변까지 함께 날아가는 폭발 */
   blast(chain: number): void {
-    const pitch = Math.pow(2, Math.min(chain - 1, 8) / 24);
-    this.noise(0.3, 0.34, 620 * pitch, 0.7);
-    this.boom(95 * pitch, 0.34, 0.32);
-    window.setTimeout(() => this.noise(0.18, 0.16, 1400 * pitch, 1.4), 45);
+    const pitch = Math.pow(2, (this.chainLevel(chain) * (CHAIN_SOUND_MAX_AT - 1)) / 24);
+    const vol = this.chainGain(chain);
+    this.noise(0.3, 0.34 * vol, 620 * pitch, 0.7);
+    this.boom(95 * pitch, 0.34, 0.32 * vol);
+    window.setTimeout(() => this.noise(0.18, 0.16 * vol, 1400 * pitch, 1.4), 45);
   }
 
   /** 찬스로 보드를 다시 섞을 때 — 반짝이며 올라가는 소리 */

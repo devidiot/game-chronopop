@@ -19,10 +19,10 @@ export function chainMultiplier(chain: number): number {
 
 /**
  * 콤보 보너스 배수.
- * 손을 멈추지 않고 연달아 터뜨리면 최대 2배까지 붙는다.
+ * 콤보 n회면 n단계가 쌓인다. 10콤보에서 최대가 되고 그 뒤는 그대로다.
  */
 export function comboMultiplier(combo: number): number {
-  const stacks = Math.min(Math.max(combo - 1, 0), COMBO_MAX_STACK);
+  const stacks = Math.min(Math.max(combo, 0), COMBO_MAX_STACK);
   return 1 + stacks * COMBO_STEP;
 }
 

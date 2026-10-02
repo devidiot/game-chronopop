@@ -4,6 +4,10 @@ import {
   BLAST_MIN_CHAIN,
   BLAST_MIN_MATCH,
   BLAST_SCORE,
+  STICKY_SPAWN_BOARD,
+  STICKY_SPAWN_MAX,
+  STICKY_SPAWN_PER_MULT,
+  getBoardSize,
   BOMB_CHAIN_RADIUS,
   BOMB_CROSS_RADIUS,
   BOMB_SCORE,
@@ -764,7 +768,12 @@ export class Engine {
     clearCells(this.grid, this.clearingCells);
     this.clearingCells = [];
 
-    const plan = applyGravity(this.grid);
+    // 7×7에서는 연쇄가 깊을수록 같은 젬이 위아래로 붙어 떨어진다
+    const sticky =
+      getBoardSize() === STICKY_SPAWN_BOARD
+        ? Math.min(STICKY_SPAWN_MAX, chainMultiplier(this.chain) * STICKY_SPAWN_PER_MULT)
+        : 0;
+    const plan = applyGravity(this.grid, sticky);
 
     let maxDrop = 0;
     for (const tile of [...plan.moved, ...plan.spawned]) {

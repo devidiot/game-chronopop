@@ -379,8 +379,11 @@ export interface FallPlan {
 /**
  * 빈 칸을 메운다. 기존 타일을 아래로 내리고, 남은 자리는
  * 화면 위쪽(음수 row)에서 떨어지는 새 타일로 채운다.
+ *
+ * @param sticky 새 타일이 바로 아래 타일과 같은 종류로 나올 확률(0~1).
+ *               연쇄가 깊을수록 올려 주면 다음 연쇄가 이어질 자리가 생긴다.
  */
-export function applyGravity(grid: Grid): FallPlan {
+export function applyGravity(grid: Grid, sticky = 0): FallPlan {
   const moved: Tile[] = [];
   const spawned: Tile[] = [];
 
@@ -407,7 +410,10 @@ export function applyGravity(grid: Grid): FallPlan {
     // 남은 위쪽 칸 채우기 — 화면 밖에서 순서대로 떨어진다
     let spawnOffset = 1;
     for (let r = writeRow; r >= 0; r--) {
-      const tile = makeTile(randKind(), r, c, -spawnOffset, rollBomb());
+      // 아래 칸은 이미 채워져 있으므로(내려온 타일이거나 방금 만든 타일) 그 종류를 따라간다
+      const below = r + 1 < ROWS ? grid[r + 1][c] : null;
+      const kind = below && sticky > 0 && Math.random() < sticky ? below.kind : randKind();
+      const tile = makeTile(kind, r, c, -spawnOffset, rollBomb());
       spawnOffset++;
       grid[r][c] = tile;
       spawned.push(tile);
